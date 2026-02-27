@@ -15,6 +15,7 @@ set -euo pipefail
 
 REPO="${RAYCLAW_REPO:-rayclaw/rayclaw}"
 BIN_NAME="rayclaw"
+TMPDIR_CLEANUP=""
 
 log() { printf '%s\n' "$*"; }
 err() { printf 'Error: %s\n' "$*" >&2; }
@@ -212,9 +213,10 @@ main() {
     exit 1
   fi
 
-  local tmpdir archive asset_filename
-  tmpdir="$(mktemp -d)"
-  trap 'rm -rf "$tmpdir"' EXIT
+  local archive asset_filename
+  TMPDIR_CLEANUP="$(mktemp -d)"
+  local tmpdir="$TMPDIR_CLEANUP"
+  trap 'rm -rf "$TMPDIR_CLEANUP"' EXIT
 
   asset_filename="${asset_url##*/}"
   asset_filename="${asset_filename%%\?*}"
