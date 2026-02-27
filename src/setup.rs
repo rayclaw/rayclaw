@@ -1727,6 +1727,7 @@ fn draw_ui(frame: &mut ratatui::Frame<'_>, app: &SetupApp) {
 
     let mut lines = Vec::<Line>::new();
     let mut last_section = "";
+    let mut selected_line: usize = 0;
     for (i, f) in app.fields.iter().enumerate() {
         let section = SetupApp::section_for_key(&f.key);
         if section != last_section {
@@ -1743,6 +1744,9 @@ fn draw_ui(frame: &mut ratatui::Frame<'_>, app: &SetupApp) {
         }
 
         let selected = i == app.selected;
+        if selected {
+            selected_line = lines.len();
+        }
         let is_required = app.is_field_required(f);
         let label = if is_required {
             format!("{}  [required]", f.label)
@@ -1768,10 +1772,19 @@ fn draw_ui(frame: &mut ratatui::Frame<'_>, app: &SetupApp) {
             Span::styled(value, Style::default().fg(Color::Green)),
         ]));
     }
+    let field_area = body_chunks[0].inner(Margin::new(1, 0));
+    // Keep selected field visible: place it near the center of the viewport
+    let visible_height = field_area.height.saturating_sub(2) as usize;
+    let scroll_y = if visible_height == 0 || selected_line < visible_height / 2 {
+        0
+    } else {
+        selected_line.saturating_sub(visible_height / 2)
+    };
     let body = Paragraph::new(lines)
         .block(Block::default().borders(Borders::ALL).title("Fields"))
-        .wrap(Wrap { trim: false });
-    frame.render_widget(body, body_chunks[0].inner(Margin::new(1, 0)));
+        .wrap(Wrap { trim: false })
+        .scroll((scroll_y as u16, 0));
+    frame.render_widget(body, field_area);
 
     let field = app.selected_field();
     let help = Paragraph::new(vec![
