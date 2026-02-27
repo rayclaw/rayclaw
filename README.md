@@ -80,16 +80,8 @@ Checks include PATH, shell runtime, Node/npm, `agent-browser`, PowerShell policy
 
 ### Uninstall (script)
 
-macOS/Linux:
-
 ```sh
 curl -fsSL https://rayclaw.ai/uninstall.sh | bash
-```
-
-Windows PowerShell:
-
-```powershell
-iwr https://rayclaw.ai/uninstall.ps1 -UseBasicParsing | iex
 ```
 
 ### From source

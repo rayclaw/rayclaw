@@ -89,16 +89,8 @@ rayclaw doctor --json
 
 ### 卸载（脚本）
 
-macOS/Linux：
-
 ```sh
 curl -fsSL https://rayclaw.ai/uninstall.sh | bash
-```
-
-Windows PowerShell：
-
-```powershell
-iwr https://rayclaw.ai/uninstall.ps1 -UseBasicParsing | iex
 ```
 
 ### 从源码构建
