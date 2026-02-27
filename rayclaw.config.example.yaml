@@ -1,0 +1,106 @@
+# ──────────────────────────────────────────────────────
+# RayClaw configuration
+# Copy to rayclaw.config.yaml and fill in required values.
+# Override path: RAYCLAW_CONFIG=/path/to/config.yaml
+# ──────────────────────────────────────────────────────
+
+# ── Telegram ────────────────────────────────────────
+# Token from @BotFather
+telegram_bot_token: ""
+# Bot username (without @)
+bot_username: ""
+
+# ── LLM provider ───────────────────────────────────
+# Supported: anthropic, openai, openai-codex, openrouter,
+#            ollama, deepseek, google, mistral, etc.
+llm_provider: "anthropic"
+# API key (not required for ollama; openai-codex supports OAuth)
+api_key: ""
+# Model name (empty = use provider default)
+model: ""
+# Custom base URL (leave unset to use provider default)
+# llm_base_url: null
+
+# Optional per-model token pricing for /usage cost display.
+# USD per 1M tokens. Use "*" as catch-all fallback.
+# model_prices:
+#   - model: "claude-sonnet-4-5-20250929"
+#     input_per_million_usd: 3.0
+#     output_per_million_usd: 15.0
+
+# ── Limits ──────────────────────────────────────────
+max_tokens: 8192                # max tokens per response
+max_tool_iterations: 100        # max tool loop rounds per message
+max_history_messages: 50        # chat history context window
+max_document_size_mb: 100       # max inbound document size (MB)
+memory_token_budget: 1500       # token budget for memory injection
+
+# ── Embedding (optional, requires --features sqlite-vec) ──
+# embedding_provider: "openai"  # openai | ollama
+# embedding_api_key: ""
+# embedding_base_url: ""
+# embedding_model: "text-embedding-3-small"
+# embedding_dim: 1536
+
+# ── Paths ───────────────────────────────────────────
+# Runtime data goes to <data_dir>/runtime; skills to <data_dir>/skills
+data_dir: "./rayclaw.data"
+# Working directory for bash / file / search tools
+working_dir: "./tmp"
+# Isolation: "shared" (single dir) or "chat" (per chat_id subdirectory)
+working_dir_isolation: "chat"
+# IANA timezone for scheduling (e.g., "US/Eastern", "Asia/Shanghai")
+timezone: "UTC"
+
+# ── Voice transcription (optional) ──────────────────
+# openai_api_key: ""
+
+# ── Session management ──────────────────────────────
+max_session_messages: 40        # trigger compaction above this
+compact_keep_recent: 20         # messages to keep verbatim after compaction
+
+# ── Permissions ─────────────────────────────────────
+# Telegram groups allowed to use the bot (empty = allow all)
+# allowed_groups: []
+# Control chats can operate across all chats (global memory, cross-chat send, etc.)
+# control_chat_ids: []
+# Skip tool approval prompts (for isolated / sandboxed environments)
+# skip_tool_approval: false   # or set RAYCLAW_SKIP_TOOL_APPROVAL=true
+
+# ── Discord (optional) ─────────────────────────────
+# discord_bot_token: ""
+# discord_allowed_channels: []
+
+# ── Slack (optional, Socket Mode) ──────────────────
+# channels:
+#   slack:
+#     bot_token: "xoxb-..."
+#     app_token: "xapp-..."
+#     allowed_channels: []
+
+# ── Feishu / Lark (optional) ───────────────────────
+# channels:
+#   feishu:
+#     app_id: "cli_xxx"
+#     app_secret: "xxx"
+#     connection_mode: "websocket"   # websocket (default) | webhook
+#     domain: "feishu"               # feishu | lark | custom URL
+#     allowed_chats: []
+
+# ── Web UI ──────────────────────────────────────────
+web_enabled: true
+web_host: "127.0.0.1"
+web_port: 10962
+# Optional bearer token for API auth
+# web_auth_token: ""
+web_max_inflight_per_session: 2
+web_max_requests_per_window: 8
+web_rate_window_seconds: 10
+web_run_history_limit: 512
+web_session_idle_ttl_seconds: 300
+
+# ── Personality ─────────────────────────────────────
+# Markdown file defining the bot's voice, values, and working style.
+# If unset, checks <data_dir>/SOUL.md then ./SOUL.md
+# Per-chat override: <data_dir>/runtime/groups/<chat_id>/SOUL.md
+# soul_path: "./SOUL.md"

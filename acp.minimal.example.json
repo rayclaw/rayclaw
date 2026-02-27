@@ -1,0 +1,8 @@
+{
+  "defaultAutoApprove": true,
+  "acpAgents": {
+    "claude": {
+      "command": "@anthropic-ai/claude-code@latest"
+    }
+  }
+}

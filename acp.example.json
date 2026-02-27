@@ -1,0 +1,31 @@
+{
+  "defaultAutoApprove": true,
+  "promptTimeoutSecs": 300,
+  "acpAgents": {
+    "claude": {
+      "launch": "npx",
+      "command": "@anthropic-ai/claude-code@latest",
+      "args": ["--acp"],
+      "env": {
+        "ANTHROPIC_API_KEY": "your-api-key-here"
+      },
+      "workspace": "/home/ubuntu/projects",
+      "auto_approve": true
+    },
+    "opencode": {
+      "launch": "binary",
+      "command": "/usr/local/bin/opencode",
+      "args": ["acp"],
+      "workspace": "/home/ubuntu/projects"
+    },
+    "gemini": {
+      "launch": "npx",
+      "command": "@google/gemini-cli@latest",
+      "args": ["--experimental-acp"],
+      "env": {
+        "GEMINI_API_KEY": "your-gemini-api-key-here"
+      },
+      "workspace": "/home/ubuntu/projects"
+    }
+  }
+}
