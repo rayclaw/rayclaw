@@ -53,10 +53,6 @@ RayClaw 是一个用 Rust 编写的多渠道 AI 智能体运行时。它通过�
   <img src="docs/assets/readme/rayclaw-architecture.svg" alt="RayClaw 架构总览" width="96%" />
 </p>
 
-## 博客文章
-
-关于项目架构与设计取舍的介绍文章：**[Building RayClaw: An Agentic AI Assistant in Rust That Lives in Your Chats](https://rayclaw.ai/blog/building-rayclaw)**
-
 ## 安装
 
 ### 一键安装（推荐）

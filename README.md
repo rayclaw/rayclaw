@@ -134,10 +134,6 @@ Every message triggers an **agentic loop**: the model can call tools, inspect th
   <img src="docs/assets/readme/rayclaw-architecture.svg" alt="RayClaw architecture overview" width="96%" />
 </p>
 
-## Blog post
-
-For a deeper dive into the architecture and design decisions, read: **[Building RayClaw: An Agentic AI Assistant in Rust That Lives in Your Chats](https://rayclaw.ai/blog/building-rayclaw)**
-
 ## Features
 
 - **Agentic tool use** -- bash commands, file read/write/edit, glob search, regex grep, persistent memory
