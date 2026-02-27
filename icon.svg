@@ -1,0 +1,40 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#064E3B"/>
+      <stop offset="0.5" stop-color="#0C4A6E"/>
+      <stop offset="1" stop-color="#1E1B4B"/>
+    </linearGradient>
+    <linearGradient id="claw" x1="160" y1="140" x2="360" y2="380" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2DD4BF"/>
+      <stop offset="1" stop-color="#06B6D4"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+
+  <!-- Wave pattern at bottom -->
+  <path d="M0 380 Q64 350 128 370 T256 370 T384 370 T512 370 V512 H0 Z" fill="#0D9488" fill-opacity="0.25"/>
+  <path d="M0 400 Q64 375 128 395 T256 395 T384 395 T512 395 V512 H0 Z" fill="#14B8A6" fill-opacity="0.15"/>
+
+  <!-- Crab claw icon -->
+  <!-- Left claw -->
+  <path d="M160 260 C140 220 140 180 170 150 C190 130 210 140 210 160 L200 220 Z" stroke="url(#claw)" stroke-width="12" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M160 260 C140 230 120 200 130 170 C140 150 155 150 160 170 L160 220 Z" stroke="url(#claw)" stroke-width="12" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Right claw -->
+  <path d="M352 260 C372 220 372 180 342 150 C322 130 302 140 302 160 L312 220 Z" stroke="url(#claw)" stroke-width="12" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M352 260 C372 230 392 200 382 170 C372 150 357 150 352 170 L352 220 Z" stroke="url(#claw)" stroke-width="12" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Body -->
+  <ellipse cx="256" cy="290" rx="90" ry="70" fill="url(#claw)" fill-opacity="0.3" stroke="url(#claw)" stroke-width="8"/>
+
+  <!-- Eyes -->
+  <circle cx="228" cy="268" r="12" fill="#2DD4BF"/>
+  <circle cx="284" cy="268" r="12" fill="#2DD4BF"/>
+  <circle cx="228" cy="268" r="5" fill="#042F2E"/>
+  <circle cx="284" cy="268" r="5" fill="#042F2E"/>
+
+  <!-- Text -->
+  <text x="256" y="420" fill="#F0FDFA" font-size="52" font-weight="700" font-family="Segoe UI, Arial, sans-serif" text-anchor="middle">RayClaw</text>
+</svg>

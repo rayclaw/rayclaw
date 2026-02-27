@@ -1,0 +1,68 @@
+<svg width="1200" height="620" viewBox="0 0 1200 620" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="620" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0C4A6E"/>
+      <stop offset="0.5" stop-color="#164E63"/>
+      <stop offset="1" stop-color="#1E1B4B"/>
+    </linearGradient>
+    <linearGradient id="card" x1="130" y1="120" x2="1040" y2="510" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F0FDFA" stop-opacity="0.96"/>
+      <stop offset="1" stop-color="#ECFEFF" stop-opacity="0.92"/>
+    </linearGradient>
+    <filter id="shadow" x="70" y="70" width="1060" height="480" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#042F2E" flood-opacity="0.25"/>
+    </filter>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M1 1L6 4L1 7" stroke="#134E4A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+
+  <rect width="1200" height="620" rx="28" fill="url(#bg)"/>
+  <circle cx="90" cy="80" r="40" fill="#2DD4BF" fill-opacity="0.15"/>
+  <circle cx="1120" cy="560" r="50" fill="#06B6D4" fill-opacity="0.12"/>
+
+  <g filter="url(#shadow)">
+    <rect x="110" y="98" width="980" height="424" rx="28" fill="url(#card)"/>
+  </g>
+
+  <text x="146" y="148" fill="#042F2E" font-size="34" font-weight="700" font-family="Segoe UI, Arial, sans-serif">RayClaw Agent Loop</text>
+
+  <!-- Step 1: Incoming -->
+  <rect x="150" y="192" width="210" height="82" rx="18" fill="#CCFBF1" stroke="#5EEAD4" stroke-width="1.5"/>
+  <text x="183" y="226" fill="#134E4A" font-size="15" font-weight="600" font-family="Segoe UI, Arial, sans-serif">STEP 1</text>
+  <text x="183" y="252" fill="#0F766E" font-size="22" font-weight="700" font-family="Segoe UI, Arial, sans-serif">Incoming Chat</text>
+
+  <!-- Step 2: Context -->
+  <rect x="400" y="192" width="290" height="82" rx="18" fill="#CFFAFE" stroke="#67E8F9" stroke-width="1.5"/>
+  <text x="428" y="226" fill="#164E63" font-size="15" font-weight="600" font-family="Segoe UI, Arial, sans-serif">STEP 2</text>
+  <text x="428" y="252" fill="#0E7490" font-size="22" font-weight="700" font-family="Segoe UI, Arial, sans-serif">Load Context + Memory</text>
+
+  <!-- Step 3: LLM -->
+  <rect x="730" y="192" width="310" height="82" rx="18" fill="#E0E7FF" stroke="#A5B4FC" stroke-width="1.5"/>
+  <text x="758" y="226" fill="#312E81" font-size="15" font-weight="600" font-family="Segoe UI, Arial, sans-serif">STEP 3</text>
+  <text x="758" y="252" fill="#4338CA" font-size="22" font-weight="700" font-family="Segoe UI, Arial, sans-serif">LLM + Tool Schemas</text>
+
+  <path d="M360 232H398" stroke="#134E4A" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <path d="M690 232H728" stroke="#134E4A" stroke-width="2.5" marker-end="url(#arrow)"/>
+
+  <!-- Branch: tool_use -->
+  <rect x="200" y="340" width="306" height="140" rx="22" fill="#F0FDFA" stroke="#5EEAD4" stroke-width="2"/>
+  <text x="240" y="382" fill="#134E4A" font-size="15" font-weight="600" font-family="Segoe UI, Arial, sans-serif">BRANCH A</text>
+  <text x="240" y="412" fill="#0D9488" font-size="26" font-weight="700" font-family="Segoe UI, Arial, sans-serif">tool_use</text>
+  <text x="240" y="446" fill="#0F766E" font-size="19" font-family="Segoe UI, Arial, sans-serif">execute tools, append result,</text>
+  <text x="240" y="468" fill="#0F766E" font-size="19" font-family="Segoe UI, Arial, sans-serif">loop back to LLM</text>
+
+  <!-- Branch: end_turn -->
+  <rect x="660" y="340" width="306" height="140" rx="22" fill="#CCFBF1" stroke="#99F6E4" stroke-width="2"/>
+  <text x="700" y="382" fill="#134E4A" font-size="15" font-weight="600" font-family="Segoe UI, Arial, sans-serif">BRANCH B</text>
+  <text x="700" y="412" fill="#0D9488" font-size="26" font-weight="700" font-family="Segoe UI, Arial, sans-serif">end_turn</text>
+  <text x="700" y="446" fill="#0F766E" font-size="19" font-family="Segoe UI, Arial, sans-serif">persist session, send reply,</text>
+  <text x="700" y="468" fill="#0F766E" font-size="19" font-family="Segoe UI, Arial, sans-serif">update usage metrics</text>
+
+  <!-- Arrows from LLM down -->
+  <path d="M870 274V336" stroke="#134E4A" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <path d="M780 274V336" stroke="#134E4A" stroke-width="2.5" marker-end="url(#arrow)"/>
+
+  <!-- Loop-back dashed arrow from tool_use back to LLM -->
+  <path d="M506 410C610 410 620 270 728 270" stroke="#0D9488" stroke-width="2.5" stroke-dasharray="8 10" marker-end="url(#arrow)"/>
+</svg>

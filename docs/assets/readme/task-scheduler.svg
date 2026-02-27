@@ -1,0 +1,41 @@
+<svg width="1200" height="620" viewBox="0 0 1200 620" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="tbg" x1="0" y1="0" x2="1200" y2="620" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1E1B4B"/>
+      <stop offset="0.5" stop-color="#0C4A6E"/>
+      <stop offset="1" stop-color="#064E3B"/>
+    </linearGradient>
+    <marker id="tarrow" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M1 1L6 4L1 7" stroke="#134E4A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+
+  <rect width="1200" height="620" rx="28" fill="url(#tbg)"/>
+  <rect x="92" y="92" width="1016" height="436" rx="30" fill="#F0FDFA" fill-opacity="0.95"/>
+
+  <text x="140" y="148" fill="#042F2E" font-size="34" font-weight="700" font-family="Segoe UI, Arial, sans-serif">Natural Language Scheduler</text>
+
+  <rect x="140" y="200" width="292" height="244" rx="22" fill="#CCFBF1" stroke="#5EEAD4" stroke-width="1.5"/>
+  <text x="182" y="248" fill="#134E4A" font-size="28" font-weight="700" font-family="Segoe UI, Arial, sans-serif">Create</text>
+  <text x="168" y="290" fill="#0F766E" font-size="19" font-family="Segoe UI, Arial, sans-serif">"Every 30 minutes..."</text>
+  <text x="168" y="320" fill="#0F766E" font-size="19" font-family="Segoe UI, Arial, sans-serif">or one-time reminder</text>
+  <text x="168" y="350" fill="#0F766E" font-size="19" font-family="Segoe UI, Arial, sans-serif">natural language input</text>
+
+  <rect x="454" y="200" width="292" height="244" rx="22" fill="#CFFAFE" stroke="#67E8F9" stroke-width="1.5"/>
+  <text x="506" y="248" fill="#164E63" font-size="28" font-weight="700" font-family="Segoe UI, Arial, sans-serif">Schedule</text>
+  <text x="482" y="290" fill="#0E7490" font-size="19" font-family="Segoe UI, Arial, sans-serif">cron expression stored</text>
+  <text x="482" y="320" fill="#0E7490" font-size="19" font-family="Segoe UI, Arial, sans-serif">polling every 60s</text>
+  <text x="482" y="350" fill="#0E7490" font-size="19" font-family="Segoe UI, Arial, sans-serif">SQLite persistence</text>
+
+  <rect x="768" y="200" width="292" height="244" rx="22" fill="#E0E7FF" stroke="#A5B4FC" stroke-width="1.5"/>
+  <text x="828" y="248" fill="#312E81" font-size="28" font-weight="700" font-family="Segoe UI, Arial, sans-serif">Deliver</text>
+  <text x="798" y="290" fill="#4338CA" font-size="19" font-family="Segoe UI, Arial, sans-serif">run agent loop</text>
+  <text x="798" y="320" fill="#4338CA" font-size="19" font-family="Segoe UI, Arial, sans-serif">send result to chat</text>
+  <text x="798" y="350" fill="#4338CA" font-size="19" font-family="Segoe UI, Arial, sans-serif">cross-channel delivery</text>
+
+  <path d="M432 322H452" stroke="#134E4A" stroke-width="2.5" marker-end="url(#tarrow)"/>
+  <path d="M746 322H766" stroke="#134E4A" stroke-width="2.5" marker-end="url(#tarrow)"/>
+
+  <rect x="336" y="474" width="528" height="52" rx="16" fill="#F0FDFA" stroke="#5EEAD4" stroke-width="1.5"/>
+  <text x="376" y="508" fill="#134E4A" font-size="22" font-weight="700" font-family="Segoe UI, Arial, sans-serif">List, pause, resume, cancel with plain language</text>
+</svg>

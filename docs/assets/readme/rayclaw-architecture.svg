@@ -1,0 +1,104 @@
+<svg width="1400" height="900" viewBox="0 0 1400 900" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">RayClaw Architecture</title>
+  <desc id="desc">RayClaw architecture overview — channel adapters, shared agent engine, LLM layer, tools, memory, scheduler, and web UI.</desc>
+
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1400" y2="900" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#064E3B"/>
+      <stop offset="0.5" stop-color="#0C4A6E"/>
+      <stop offset="1" stop-color="#1E1B4B"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="120" y1="90" x2="1280" y2="810" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F0FDFA" stop-opacity="0.96"/>
+      <stop offset="1" stop-color="#ECFEFF" stop-opacity="0.93"/>
+    </linearGradient>
+    <filter id="shadow" x="72" y="48" width="1256" height="804" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#042F2E" flood-opacity="0.28"/>
+    </filter>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+      <path d="M1 1L6 4L1 7" stroke="#134E4A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+
+  <rect width="1400" height="900" rx="30" fill="url(#bg)"/>
+  <circle cx="120" cy="100" r="52" fill="#2DD4BF" fill-opacity="0.18"/>
+  <circle cx="1300" cy="820" r="60" fill="#06B6D4" fill-opacity="0.15"/>
+  <circle cx="700" cy="450" r="300" fill="#0D9488" fill-opacity="0.04"/>
+
+  <g filter="url(#shadow)">
+    <rect x="96" y="72" width="1208" height="760" rx="30" fill="url(#panel)"/>
+  </g>
+
+  <!-- Title -->
+  <text x="140" y="128" fill="#042F2E" font-size="40" font-weight="700" font-family="Segoe UI, Arial, sans-serif">RayClaw Architecture</text>
+  <text x="140" y="162" fill="#115E59" font-size="20" font-family="Segoe UI, Arial, sans-serif">Channel-agnostic agent runtime with persistent memory, tool execution, and background scheduling</text>
+
+  <!-- Row 1: Channels → Agent Engine → LLM → Tools -->
+  <rect x="138" y="206" width="246" height="216" rx="22" fill="#CCFBF1" stroke="#99F6E4" stroke-width="1.5"/>
+  <text x="170" y="248" fill="#134E4A" font-size="28" font-weight="700" font-family="Segoe UI, Arial, sans-serif">Channels</text>
+  <text x="170" y="284" fill="#0F766E" font-size="19" font-family="Segoe UI, Arial, sans-serif">Telegram</text>
+  <text x="170" y="312" fill="#0F766E" font-size="19" font-family="Segoe UI, Arial, sans-serif">Discord</text>
+  <text x="170" y="340" fill="#0F766E" font-size="19" font-family="Segoe UI, Arial, sans-serif">Slack / Feishu</text>
+  <text x="170" y="368" fill="#0F766E" font-size="19" font-family="Segoe UI, Arial, sans-serif">Web (axum + SSE)</text>
+  <text x="170" y="396" fill="#0F766E" font-size="19" font-family="Segoe UI, Arial, sans-serif">delivery + splitting</text>
+
+  <rect x="420" y="206" width="320" height="216" rx="22" fill="#CFFAFE" stroke="#A5F3FC" stroke-width="1.5"/>
+  <text x="452" y="248" fill="#164E63" font-size="28" font-weight="700" font-family="Segoe UI, Arial, sans-serif">Agent Engine</text>
+  <text x="452" y="284" fill="#0E7490" font-size="19" font-family="Segoe UI, Arial, sans-serif">load session + history</text>
+  <text x="452" y="312" fill="#0E7490" font-size="19" font-family="Segoe UI, Arial, sans-serif">build prompt + memory ctx</text>
+  <text x="452" y="340" fill="#0E7490" font-size="19" font-family="Segoe UI, Arial, sans-serif">LLM call with tool schemas</text>
+  <text x="452" y="368" fill="#0E7490" font-size="19" font-family="Segoe UI, Arial, sans-serif">tool_use loop → end_turn</text>
+  <text x="452" y="396" fill="#0E7490" font-size="19" font-family="Segoe UI, Arial, sans-serif">context compaction</text>
+
+  <rect x="776" y="206" width="250" height="216" rx="22" fill="#E0E7FF" stroke="#C7D2FE" stroke-width="1.5"/>
+  <text x="808" y="248" fill="#312E81" font-size="28" font-weight="700" font-family="Segoe UI, Arial, sans-serif">LLM Layer</text>
+  <text x="808" y="284" fill="#4338CA" font-size="19" font-family="Segoe UI, Arial, sans-serif">Anthropic Claude</text>
+  <text x="808" y="312" fill="#4338CA" font-size="19" font-family="Segoe UI, Arial, sans-serif">OpenAI-compatible</text>
+  <text x="808" y="340" fill="#4338CA" font-size="19" font-family="Segoe UI, Arial, sans-serif">streaming responses</text>
+  <text x="808" y="368" fill="#4338CA" font-size="19" font-family="Segoe UI, Arial, sans-serif">usage tracking</text>
+
+  <rect x="1062" y="206" width="202" height="216" rx="22" fill="#F0FDFA" stroke="#99F6E4" stroke-width="1.5"/>
+  <text x="1094" y="248" fill="#134E4A" font-size="28" font-weight="700" font-family="Segoe UI, Arial, sans-serif">Tools</text>
+  <text x="1094" y="284" fill="#0D9488" font-size="19" font-family="Segoe UI, Arial, sans-serif">bash / files</text>
+  <text x="1094" y="312" fill="#0D9488" font-size="19" font-family="Segoe UI, Arial, sans-serif">web / browser</text>
+  <text x="1094" y="340" fill="#0D9488" font-size="19" font-family="Segoe UI, Arial, sans-serif">schedule / todo</text>
+  <text x="1094" y="368" fill="#0D9488" font-size="19" font-family="Segoe UI, Arial, sans-serif">sub-agent</text>
+  <text x="1094" y="396" fill="#0D9488" font-size="19" font-family="Segoe UI, Arial, sans-serif">skills / MCP</text>
+
+  <!-- Arrows row 1 -->
+  <path d="M384 314H418" stroke="#134E4A" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <path d="M740 314H774" stroke="#134E4A" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <path d="M1026 314H1060" stroke="#134E4A" stroke-width="2.5" marker-end="url(#arrow)"/>
+
+  <!-- Row 2: Tool Loop -->
+  <rect x="214" y="466" width="972" height="120" rx="24" fill="#F0FDFA" stroke="#5EEAD4" stroke-width="2"/>
+  <text x="256" y="510" fill="#134E4A" font-size="28" font-weight="700" font-family="Segoe UI, Arial, sans-serif">Multi-step Tool Loop</text>
+  <text x="256" y="542" fill="#0F766E" font-size="19" font-family="Segoe UI, Arial, sans-serif">model call → tool_use → execute → tool_result → repeat (max iterations configurable)</text>
+  <text x="256" y="568" fill="#0F766E" font-size="19" font-family="Segoe UI, Arial, sans-serif">on end_turn: persist session, emit response, update usage metrics</text>
+
+  <path d="M1146 422V462" stroke="#134E4A" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <path d="M580 422V462" stroke="#134E4A" stroke-width="2.5" marker-end="url(#arrow)"/>
+
+  <!-- Row 3: Memory / Scheduler / Web -->
+  <rect x="138" y="630" width="360" height="166" rx="22" fill="#CCFBF1" stroke="#5EEAD4" stroke-width="1.5"/>
+  <text x="170" y="672" fill="#134E4A" font-size="28" font-weight="700" font-family="Segoe UI, Arial, sans-serif">Memory Stack</text>
+  <text x="170" y="706" fill="#0F766E" font-size="19" font-family="Segoe UI, Arial, sans-serif">AGENTS.md (global + per chat)</text>
+  <text x="170" y="734" fill="#0F766E" font-size="19" font-family="Segoe UI, Arial, sans-serif">structured SQLite memories</text>
+  <text x="170" y="762" fill="#0F766E" font-size="19" font-family="Segoe UI, Arial, sans-serif">reflector + quality scoring</text>
+
+  <rect x="526" y="630" width="360" height="166" rx="22" fill="#CFFAFE" stroke="#67E8F9" stroke-width="1.5"/>
+  <text x="558" y="672" fill="#164E63" font-size="28" font-weight="700" font-family="Segoe UI, Arial, sans-serif">Scheduler</text>
+  <text x="558" y="706" fill="#0E7490" font-size="19" font-family="Segoe UI, Arial, sans-serif">cron + one-time tasks</text>
+  <text x="558" y="734" fill="#0E7490" font-size="19" font-family="Segoe UI, Arial, sans-serif">background task runner</text>
+  <text x="558" y="762" fill="#0E7490" font-size="19" font-family="Segoe UI, Arial, sans-serif">reflector loop + task history</text>
+
+  <rect x="914" y="630" width="350" height="166" rx="22" fill="#E0E7FF" stroke="#A5B4FC" stroke-width="1.5"/>
+  <text x="946" y="672" fill="#312E81" font-size="28" font-weight="700" font-family="Segoe UI, Arial, sans-serif">Web + Observability</text>
+  <text x="946" y="706" fill="#4338CA" font-size="19" font-family="Segoe UI, Arial, sans-serif">chat stream + sessions API</text>
+  <text x="946" y="734" fill="#4338CA" font-size="19" font-family="Segoe UI, Arial, sans-serif">usage + memory dashboard</text>
+  <text x="946" y="762" fill="#4338CA" font-size="19" font-family="Segoe UI, Arial, sans-serif">config + history endpoints</text>
+
+  <path d="M380 586V626" stroke="#134E4A" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <path d="M710 586V626" stroke="#134E4A" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <path d="M1088 586V626" stroke="#134E4A" stroke-width="2.5" marker-end="url(#arrow)"/>
+</svg>
