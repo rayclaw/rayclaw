@@ -1,0 +1,45 @@
+[package]
+name = "rayclaw"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[features]
+default = []
+sqlite-vec = ["dep:sqlite-vec"]
+openssl-vendored = ["dep:openssl"]
+
+[dependencies]
+teloxide = { version = "0.17", features = ["macros"] }
+tokio = { version = "1", features = ["full"] }
+reqwest = { version = "0.12", features = ["json", "blocking"] }
+rusqlite = { version = "0.32", features = ["bundled"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+glob = "0.3"
+regex = "1"
+thiserror = "2"
+anyhow = "1"
+async-trait = "0.1"
+uuid = { version = "1", features = ["v4"] }
+chrono = { version = "0.4", features = ["serde"] }
+serde_yaml = "0.9"
+cron = "0.13"
+urlencoding = "2"
+base64 = "0.22"
+chrono-tz = "0.10"
+axum = "0.7"
+ratatui = { version = "0.29", default-features = false, features = ["crossterm"] }
+crossterm = "0.28"
+serenity = { version = "0.12", default-features = false, features = ["client", "gateway", "model", "cache", "rustls_backend"] }
+include_dir = "0.7"
+async-stream = "0.3"
+futures-util = "0.3"
+tokio-tungstenite = { version = "0.24", features = ["rustls-tls-webpki-roots"] }
+sqlite-vec = { version = "0.1.7-alpha.10", optional = true }
+openssl = { version = "0.10", features = ["vendored"], optional = true }
+
+[dev-dependencies]
+tower = "0.5"

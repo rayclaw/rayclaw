@@ -1,0 +1,13 @@
+.claude/
+/target
+rayclaw.config.yaml
+rayclaw.config.yaml.*
+rayclaw.data/*
+!rayclaw.data/skills/
+!rayclaw.data/skills/**
+website/
+tmp/
+working_dir/
+web/node_modules/
+dist/
+imgs/
