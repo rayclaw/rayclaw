@@ -679,14 +679,28 @@ impl AcpConnection {
 
                 match method {
                     "session/update" => {
-                        // Parse the update type from params.update.sessionUpdate
+                        // Parse the update type from params.update.sessionUpdate or params.update.type
                         let update = params.and_then(|p| p.get("update"));
-                        let update_type = update
-                            .and_then(|u| u.get("sessionUpdate"))
+                        let update_type_raw = update
+                            .and_then(|u| u.get("sessionUpdate").or_else(|| u.get("type")))
                             .and_then(|t| t.as_str())
                             .unwrap_or("");
+                        // Normalize PascalCase to snake_case for matching
+                        let update_type: String = if update_type_raw.contains('_') {
+                            update_type_raw.to_string()
+                        } else {
+                            // AgentMessageChunk -> agent_message_chunk
+                            let mut result_str = String::new();
+                            for (i, c) in update_type_raw.chars().enumerate() {
+                                if c.is_uppercase() && i > 0 {
+                                    result_str.push('_');
+                                }
+                                result_str.push(c.to_lowercase().next().unwrap_or(c));
+                            }
+                            result_str
+                        };
 
-                        match update_type {
+                        match update_type.as_str() {
                             "agent_message_chunk" => {
                                 // Extract text from content block
                                 let text = update
