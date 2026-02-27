@@ -52,16 +52,6 @@ RayClaw is a multi-channel agentic AI runtime written in Rust. It connects to Te
 curl -fsSL https://rayclaw.ai/install.sh | bash
 ```
 
-### Windows PowerShell installer
-
-```powershell
-iwr https://rayclaw.ai/install.ps1 -UseBasicParsing | iex
-```
-
-This installer only does one thing:
-- Download and install the matching prebuilt binary from the latest GitHub release
-- It does not fallback to Cargo inside `install.sh` (use source build below)
-
 ### Preflight diagnostics
 
 Run cross-platform diagnostics before first start (or when troubleshooting):
@@ -76,7 +66,7 @@ Machine-readable output for support tickets:
 rayclaw doctor --json
 ```
 
-Checks include PATH, shell runtime, Node/npm, `agent-browser`, PowerShell policy (Windows), and MCP command dependencies from `rayclaw.data/mcp.json`.
+Checks include PATH, shell runtime, Node/npm, `agent-browser`, and MCP command dependencies from `rayclaw.data/mcp.json`.
 
 ### Uninstall (script)
 

@@ -61,16 +61,6 @@ RayClaw 是一个用 Rust 编写的多渠道 AI 智能体运行时。它通过�
 curl -fsSL https://rayclaw.ai/install.sh | bash
 ```
 
-### Windows PowerShell 安装
-
-```powershell
-iwr https://rayclaw.ai/install.ps1 -UseBasicParsing | iex
-```
-
-安装脚本仅执行一种方式：
-- 从最新 GitHub Release 下载匹配平台的预编译二进制
-- 不在 `install.sh` 内回退到 Cargo（请使用下面的源码构建方式）
-
 ### 预检诊断（doctor）
 
 在首次启动或排障时，先运行跨平台诊断：
@@ -85,7 +75,7 @@ rayclaw doctor
 rayclaw doctor --json
 ```
 
-会检查：PATH、shell 运行时、Node/npm、`agent-browser`、Windows PowerShell 执行策略、以及 `rayclaw.data/mcp.json` 里的 MCP 命令依赖。
+会检查：PATH、shell 运行时、Node/npm、`agent-browser`、以及 `rayclaw.data/mcp.json` 里的 MCP 命令依赖。
 
 ### 卸载（脚本）
 
