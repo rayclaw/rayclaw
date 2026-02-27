@@ -1,0 +1,657 @@
+@import "tailwindcss";
+@import "@assistant-ui/react-ui/styles/themes/default.css";
+
+/* ─── Base Reset ─────────────────────────────────── */
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family:
+    "Inter",
+    "SF Pro Text",
+    "SF Pro Display",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+
+/* ─── CSS Custom Properties (Dark = Default) ─────── */
+
+:root {
+  --rc-bg-main: #0d0f1a;
+  --rc-bg-sidebar: #111327;
+  --rc-bg-panel: #161833;
+  --rc-bg-card: #1c1e3a;
+  --rc-bg-elevated: #222550;
+  --rc-border: #2a2d52;
+  --rc-border-subtle: #1f2244;
+  --rc-accent: #4aea7a;
+  --rc-accent-hover: #5cfa8c;
+  --rc-accent-muted: rgba(74, 234, 122, 0.15);
+  --rc-accent-hsl: 142 82% 60%;
+  --rc-secondary: #5ba8f5;
+  --rc-secondary-muted: rgba(91, 168, 245, 0.12);
+  --rc-text-primary: #e8eaf0;
+  --rc-text-secondary: #9498b3;
+  --rc-text-tertiary: #656985;
+  --rc-radius-sm: 6px;
+  --rc-radius-md: 8px;
+  --rc-radius-lg: 10px;
+  --rc-radius-xl: 12px;
+  --rc-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --rc-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.35);
+  --rc-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+html:not(.dark) {
+  --rc-bg-main: #f5f6fa;
+  --rc-bg-sidebar: #ffffff;
+  --rc-bg-panel: #ffffff;
+  --rc-bg-card: #f0f1f7;
+  --rc-bg-elevated: #e8e9f2;
+  --rc-border: #d8dae5;
+  --rc-border-subtle: #e5e7ef;
+  --rc-accent: #2cb85a;
+  --rc-accent-hover: #25a04f;
+  --rc-accent-muted: rgba(44, 184, 90, 0.10);
+  --rc-accent-hsl: 142 62% 44%;
+  --rc-secondary: #3b8de0;
+  --rc-secondary-muted: rgba(59, 141, 224, 0.08);
+  --rc-text-primary: #1a1c2e;
+  --rc-text-secondary: #5c5f78;
+  --rc-text-tertiary: #8a8da5;
+  --rc-shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06);
+  --rc-shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08);
+  --rc-shadow-lg: 0 8px 24px rgba(15, 23, 42, 0.10);
+}
+
+/* ─── Body Theming ───────────────────────────────── */
+
+body {
+  background: var(--rc-bg-main);
+  color: var(--rc-text-primary);
+}
+
+/* ─── AUI Integration (Dark) ─────────────────────── */
+
+html.dark .aui-root {
+  --aui-background: 232 35% 8%;
+  --aui-foreground: 230 20% 92%;
+  --aui-card: 233 32% 17%;
+  --aui-card-foreground: 230 20% 92%;
+  --aui-popover: 233 32% 15%;
+  --aui-popover-foreground: 230 20% 92%;
+  --aui-primary: var(--rc-accent-hsl);
+  --aui-primary-foreground: 232 35% 8%;
+  --aui-secondary: 233 28% 20%;
+  --aui-secondary-foreground: 230 18% 88%;
+  --aui-muted: 233 24% 18%;
+  --aui-muted-foreground: 230 14% 62%;
+  --aui-accent: 233 25% 22%;
+  --aui-accent-foreground: 230 22% 95%;
+  --aui-destructive: 1 70% 47%;
+  --aui-destructive-foreground: 0 0% 98%;
+  --aui-border: 233 26% 22%;
+  --aui-input: 233 26% 24%;
+  --aui-ring: var(--rc-accent-hsl);
+  --aui-thread-max-width: 50rem;
+}
+
+html.dark .aui-thread-root {
+  background: transparent;
+}
+
+html.dark .aui-thread-viewport {
+  padding-top: 14px;
+  padding-bottom: 24px;
+}
+
+html.dark .aui-assistant-message-root {
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+}
+
+html.dark .aui-assistant-avatar,
+html.dark :where(.aui-assistant-message-root) > .aui-avatar-root {
+  margin-right: 0;
+}
+
+html.dark .aui-avatar-fallback {
+  border: 1px solid var(--rc-border);
+  background: var(--rc-bg-card);
+  color: var(--rc-accent);
+}
+
+html.dark .aui-assistant-message-content {
+  max-width: calc(var(--aui-thread-max-width) * 0.9);
+  border: 1px solid var(--rc-border);
+  border-radius: var(--rc-radius-lg);
+  background: var(--rc-bg-card);
+  padding: 14px 18px;
+  box-shadow: var(--rc-shadow-md);
+  color: var(--rc-text-primary);
+  line-height: 1.7;
+}
+
+html.dark .aui-text {
+  color: var(--rc-text-primary);
+}
+
+html.dark .aui-assistant-message-content p {
+  margin: 0 0 10px;
+}
+
+html.dark .aui-assistant-message-content p:last-child {
+  margin-bottom: 0;
+}
+
+html.dark .aui-assistant-message-content ul,
+html.dark .aui-assistant-message-content ol {
+  margin: 8px 0 10px 20px;
+  padding-left: 18px;
+}
+
+html.dark .aui-assistant-message-content ul {
+  list-style-type: disc;
+}
+
+html.dark .aui-assistant-message-content ol {
+  list-style-type: decimal;
+}
+
+html.dark .aui-assistant-message-content li {
+  margin: 4px 0;
+}
+
+html.dark .aui-assistant-message-content li::marker {
+  color: var(--rc-accent);
+}
+
+html.dark .aui-assistant-message-content a {
+  color: var(--rc-secondary);
+  text-underline-offset: 2px;
+}
+
+html.dark .aui-assistant-message-content code {
+  border-radius: var(--rc-radius-sm);
+  border: 1px solid var(--rc-border);
+  background: var(--rc-bg-panel);
+  color: var(--rc-secondary);
+  padding: 1px 6px;
+  font-size: 0.85em;
+}
+
+html.dark .aui-md-inline-code {
+  border-color: var(--rc-border);
+  background: var(--rc-bg-panel);
+  color: var(--rc-secondary);
+}
+
+html.dark .aui-assistant-message-content pre {
+  margin: 10px 0;
+  border-radius: var(--rc-radius-lg);
+  border: 1px solid var(--rc-border);
+  background: var(--rc-bg-main);
+  padding: 10px 12px;
+}
+
+html.dark .aui-assistant-message-content pre code {
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+
+html.dark .aui-assistant-message-content blockquote {
+  margin: 10px 0;
+  border-left: 3px solid var(--rc-accent);
+  background: var(--rc-accent-muted);
+  padding: 6px 10px;
+  color: var(--rc-text-secondary);
+}
+
+html.dark .aui-user-message-content {
+  border: 1px solid color-mix(in srgb, var(--rc-accent) 30%, var(--rc-border));
+  border-radius: var(--rc-radius-lg);
+  background: color-mix(in srgb, var(--rc-accent) 8%, var(--rc-bg-card));
+  color: var(--rc-text-primary);
+  box-shadow: var(--rc-shadow-md);
+}
+
+html.dark .aui-composer-root {
+  border: 1px solid var(--rc-border);
+  background: var(--rc-bg-card);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+
+html.dark .aui-composer-root:hover {
+  border-color: color-mix(in srgb, var(--rc-accent) 30%, var(--rc-border));
+}
+
+html.dark .aui-composer-root:focus-within {
+  border-color: var(--rc-accent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--rc-accent) 40%, transparent),
+    0 0 0 4px color-mix(in srgb, var(--rc-accent) 12%, transparent);
+}
+
+html.dark .aui-composer-input {
+  color: var(--rc-text-primary);
+}
+
+html.dark .aui-composer-input::placeholder {
+  color: var(--rc-text-tertiary);
+}
+
+html.dark .aui-composer-send {
+  border: 1px solid var(--rc-accent);
+  background: var(--rc-accent);
+  color: #0d0f1a;
+  border-radius: var(--rc-radius-md);
+}
+
+html.dark .aui-composer-send:hover {
+  background: var(--rc-accent-hover);
+  filter: brightness(1.05);
+}
+
+html.dark .aui-assistant-action-bar-root {
+  grid-column-start: 2;
+  margin-left: 2px;
+  margin-top: 2px;
+  opacity: 0.9;
+}
+
+html.dark .aui-assistant-action-bar-root button {
+  border-radius: var(--rc-radius-md);
+}
+
+html.dark .aui-thread-scroll-to-bottom {
+  border: 1px solid var(--rc-border);
+  background: var(--rc-bg-card);
+}
+
+html.dark .rt-BaseButton:where(.rt-variant-solid) {
+  background-color: var(--rc-accent);
+  border-color: var(--rc-accent);
+  color: #0d0f1a;
+}
+
+html.dark .rt-BaseButton:where(.rt-variant-solid):hover {
+  filter: brightness(1.06);
+}
+
+html.dark .rt-BaseButton:where(.rt-variant-solid):active {
+  filter: brightness(0.96);
+}
+
+/* ─── AUI Integration (Light) ────────────────────── */
+
+html:not(.dark) .aui-root {
+  --aui-thread-max-width: 50rem;
+}
+
+html:not(.dark) .aui-thread-root {
+  background: transparent;
+}
+
+html:not(.dark) .aui-thread-viewport {
+  padding-top: 14px;
+  padding-bottom: 24px;
+}
+
+html:not(.dark) .aui-assistant-message-root {
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+}
+
+html:not(.dark) .aui-assistant-avatar,
+html:not(.dark) :where(.aui-assistant-message-root) > .aui-avatar-root {
+  margin-right: 0;
+}
+
+html:not(.dark) .aui-avatar-fallback {
+  border: 1px solid var(--rc-border);
+  background: var(--rc-bg-card);
+  color: var(--rc-accent);
+}
+
+html:not(.dark) .aui-assistant-message-content {
+  max-width: calc(var(--aui-thread-max-width) * 0.9);
+  border: 1px solid var(--rc-border);
+  border-radius: var(--rc-radius-lg);
+  background: var(--rc-bg-sidebar);
+  padding: 14px 18px;
+  box-shadow: var(--rc-shadow-sm);
+  color: var(--rc-text-primary);
+  line-height: 1.7;
+}
+
+html:not(.dark) .aui-text {
+  color: var(--rc-text-primary);
+}
+
+html:not(.dark) .aui-assistant-message-content a {
+  color: var(--rc-secondary);
+}
+
+html:not(.dark) .aui-assistant-message-content code {
+  border-radius: var(--rc-radius-sm);
+  border: 1px solid var(--rc-border);
+  background: var(--rc-bg-card);
+  color: color-mix(in srgb, var(--rc-secondary) 70%, var(--rc-text-primary));
+  padding: 1px 6px;
+  font-size: 0.85em;
+}
+
+html:not(.dark) .aui-md-inline-code {
+  border-color: var(--rc-border);
+  background: var(--rc-bg-card);
+  color: color-mix(in srgb, var(--rc-secondary) 70%, var(--rc-text-primary));
+}
+
+html:not(.dark) .aui-assistant-message-content pre {
+  margin: 10px 0;
+  border-radius: var(--rc-radius-lg);
+  border: 1px solid var(--rc-border);
+  background: var(--rc-bg-card);
+  padding: 10px 12px;
+}
+
+html:not(.dark) .aui-assistant-message-content pre code {
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+
+html:not(.dark) .aui-assistant-message-content blockquote {
+  margin: 10px 0;
+  border-left: 3px solid var(--rc-accent);
+  background: var(--rc-accent-muted);
+  padding: 6px 10px;
+  color: var(--rc-text-secondary);
+}
+
+html:not(.dark) .aui-user-message-content {
+  border: 1px solid color-mix(in srgb, var(--rc-accent) 35%, var(--rc-border));
+  border-radius: var(--rc-radius-lg);
+  background: color-mix(in srgb, var(--rc-accent) 8%, var(--rc-bg-sidebar));
+  color: var(--rc-text-primary);
+  box-shadow: var(--rc-shadow-sm);
+}
+
+html:not(.dark) .aui-composer-root {
+  border: 1px solid var(--rc-border);
+  background: var(--rc-bg-sidebar);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+html:not(.dark) .aui-composer-root:hover {
+  border-color: color-mix(in srgb, var(--rc-accent) 40%, var(--rc-border));
+}
+
+html:not(.dark) .aui-composer-root:focus-within {
+  border-color: var(--rc-accent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--rc-accent) 50%, transparent),
+    0 0 0 4px color-mix(in srgb, var(--rc-accent) 15%, transparent);
+}
+
+html:not(.dark) .aui-composer-input {
+  color: var(--rc-text-primary);
+}
+
+html:not(.dark) .aui-composer-input::placeholder {
+  color: var(--rc-text-tertiary);
+}
+
+html:not(.dark) .aui-composer-send {
+  border: 1px solid var(--rc-accent);
+  background: var(--rc-accent);
+  color: #ffffff;
+  border-radius: var(--rc-radius-md);
+}
+
+html:not(.dark) .aui-composer-send:hover {
+  background: var(--rc-accent-hover);
+  filter: brightness(1.03);
+}
+
+/* ─── Component Classes ──────────────────────────── */
+
+.rc-user-content-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.rc-msg-time {
+  margin-top: 6px;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--rc-text-tertiary);
+}
+
+.rc-msg-time-right {
+  padding-right: 6px;
+}
+
+.rc-assistant-placeholder {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--rc-border);
+  border-radius: var(--rc-radius-lg);
+  background: var(--rc-bg-card);
+  color: var(--rc-text-secondary);
+  padding: 11px 14px;
+  min-height: 44px;
+}
+
+.rc-assistant-placeholder-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--rc-accent);
+  animation: rc-pulse 1.2s infinite ease-in-out;
+}
+
+.rc-assistant-placeholder-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.rc-assistant-placeholder-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+.rc-assistant-placeholder-text {
+  margin-left: 2px;
+  font-size: 13px;
+}
+
+@keyframes rc-pulse {
+  0%,
+  80%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.45;
+  }
+  40% {
+    transform: translateY(-2px);
+    opacity: 0.95;
+  }
+}
+
+/* ─── Tool Cards ─────────────────────────────────── */
+
+.rc-tool-card {
+  margin-top: 10px;
+  border-radius: var(--rc-radius-lg);
+  border: 1px solid var(--rc-border);
+  background: var(--rc-bg-panel);
+  padding: 10px 14px;
+}
+
+.rc-tool-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.rc-tool-card-name {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--rc-text-primary);
+}
+
+.rc-tool-card-state {
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.rc-tool-card-state.running {
+  border-color: hsl(45 92% 48% / 0.45);
+  background: hsl(45 92% 44% / 0.14);
+  color: hsl(45 95% 70%);
+}
+
+.rc-tool-card-state.ok {
+  border-color: color-mix(in srgb, var(--rc-accent) 62%, transparent);
+  background: var(--rc-accent-muted);
+  color: var(--rc-accent);
+}
+
+.rc-tool-card-state.error {
+  border-color: hsl(0 68% 50% / 0.45);
+  background: hsl(0 68% 46% / 0.14);
+  color: hsl(0 72% 76%);
+}
+
+.rc-tool-card-meta {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.rc-tool-card-meta > span {
+  border: 1px solid var(--rc-border);
+  border-radius: 9999px;
+  padding: 2px 8px;
+  font-size: 11px;
+  color: var(--rc-text-secondary);
+}
+
+.rc-tool-card-pre {
+  margin-top: 8px;
+  max-height: 220px;
+  overflow: auto;
+  border-radius: var(--rc-radius-md);
+  border: 1px solid var(--rc-border-subtle);
+  background: var(--rc-bg-main);
+  padding: 8px 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--rc-text-secondary);
+}
+
+/* ─── Scrollbar ──────────────────────────────────── */
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 9999px;
+  background: var(--rc-border);
+  background-clip: content-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--rc-text-tertiary);
+  background-clip: content-box;
+}
+
+/* ─── Settings Dialog ────────────────────────────── */
+
+.rc-settings-nav-item {
+  width: 100%;
+  min-height: 42px;
+  padding: 10px 12px;
+  border-radius: var(--rc-radius-lg);
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.rc-settings-nav-item:hover {
+  background: var(--rc-accent-muted);
+}
+
+.rc-settings-tabs-list {
+  width: 100%;
+  align-items: stretch !important;
+}
+
+.rc-settings-tabs-list > * {
+  width: 100% !important;
+}
+
+.rc-settings-tabs-list [role="tab"] {
+  width: 100% !important;
+  display: flex !important;
+  justify-content: flex-start !important;
+  box-sizing: border-box;
+}
+
+.rc-settings-tab-trigger {
+  width: 100% !important;
+  display: flex !important;
+  justify-content: flex-start !important;
+  box-sizing: border-box;
+}
+
+.rc-settings-tab-trigger[data-state="active"] {
+  background: var(--rc-accent-muted) !important;
+  color: var(--rc-accent) !important;
+}
+
+.rc-settings-tabs-list .rt-BaseTabListTriggerInner,
+.rc-settings-tabs-list .rt-TabsTriggerInner,
+.rc-settings-tabs-list .rt-BaseTabListTriggerInnerHidden,
+.rc-settings-tabs-list .rt-TabsTriggerInnerHidden {
+  width: 100% !important;
+  display: flex !important;
+  justify-content: flex-start !important;
+  text-align: left !important;
+}
+
+.rc-select-trigger-full.rt-SelectTrigger {
+  display: flex !important;
+  width: 100% !important;
+}
+
+.rc-select-trigger-full .rt-SelectTriggerInner {
+  flex: 1 1 auto;
+}
