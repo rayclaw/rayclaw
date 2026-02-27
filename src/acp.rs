@@ -761,20 +761,17 @@ impl AcpConnection {
                                     for item in content_arr {
                                         let content_type =
                                             item.get("type").and_then(|t| t.as_str()).unwrap_or("");
-                                        match content_type {
-                                            "content" => {
-                                                // Inline text content
-                                                if let Some(text) = item
-                                                    .get("content")
-                                                    .and_then(|c| c.get("text"))
-                                                    .and_then(|t| t.as_str())
-                                                {
-                                                    if !text.is_empty() {
-                                                        result.messages.push(text.to_string());
-                                                    }
+                                        if content_type == "content" {
+                                            // Inline text content
+                                            if let Some(text) = item
+                                                .get("content")
+                                                .and_then(|c| c.get("text"))
+                                                .and_then(|t| t.as_str())
+                                            {
+                                                if !text.is_empty() {
+                                                    result.messages.push(text.to_string());
                                                 }
                                             }
-                                            _ => {}
                                         }
                                     }
                                 }

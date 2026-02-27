@@ -302,7 +302,7 @@ async fn test_mock_agent_prompt_collects_notifications() {
 
     // Should have the message from AgentMessageChunk notification
     assert!(
-        result.messages.len() >= 1,
+        !result.messages.is_empty(),
         "Expected at least 1 message, got {}",
         result.messages.len()
     );
