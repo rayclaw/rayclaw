@@ -4,7 +4,7 @@
 [English](README.md) | [中文](README_CN.md)
 
 [![Website](https://img.shields.io/badge/Website-rayclaw.ai-blue)](https://rayclaw.ai)
-[![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/pvmezwkAk5)
+[![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/pPXpgN5J)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 
