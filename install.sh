@@ -8,12 +8,12 @@ set -euo pipefail
 #   curl -fsSL https://rayclaw.ai/install.sh | bash
 #
 # Environment variables:
-#   RAYCLAW_REPO         Override GitHub repo (default: rayclaw/rayclaw)
+#   RAYCLAW_REPO         Override GitHub repo (default: stevensu1977/rayclaw)
 #   RAYCLAW_INSTALL_DIR  Override install directory
 #   RAYCLAW_VERSION      Install a specific version tag (e.g. v0.1.0)
 # -------------------------------------------------------------------
 
-REPO="${RAYCLAW_REPO:-rayclaw/rayclaw}"
+REPO="${RAYCLAW_REPO:-stevensu1977/rayclaw}"
 BIN_NAME="rayclaw"
 
 log() { printf '%s\n' "$*"; }

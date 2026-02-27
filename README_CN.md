@@ -104,7 +104,7 @@ iwr https://rayclaw.ai/uninstall.ps1 -UseBasicParsing | iex
 ### 从源码构建
 
 ```sh
-git clone https://github.com/rayclaw/rayclaw.git
+git clone https://github.com/stevensu1977/rayclaw.git
 cd rayclaw
 cargo build --release
 cp target/release/rayclaw /usr/local/bin/
@@ -813,4 +813,4 @@ MIT
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=rayclaw/rayclaw&type=Date)](https://star-history.com/#rayclaw/rayclaw&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=stevensu1977/rayclaw&type=Date)](https://star-history.com/#stevensu1977/rayclaw&Date)
