@@ -1,4 +1,4 @@
-/// Shared image utility functions used by multiple channel adapters (Telegram, Feishu, etc.)
+//! Shared image utility functions used by multiple channel adapters (Telegram, Feishu, etc.)
 
 /// Base64-encode raw image bytes.
 pub fn base64_encode(data: &[u8]) -> String {
