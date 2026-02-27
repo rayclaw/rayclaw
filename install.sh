@@ -240,8 +240,17 @@ main() {
     fi
   fi
 
+  # Create working directory
+  local work_dir="${RAYCLAW_WORK_DIR:-$HOME/.rayclaw}"
+  if [ ! -d "$work_dir" ]; then
+    mkdir -p "$work_dir"
+    log ""
+    log "  Created working directory: ${work_dir}"
+  fi
+
   log ""
   log "  Get started:"
+  log "    cd ${work_dir}"
   log "    ${BIN_NAME} setup    # Interactive configuration wizard"
   log "    ${BIN_NAME} start    # Start the bot"
   log "    ${BIN_NAME} help     # Show all commands"
