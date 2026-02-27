@@ -238,10 +238,8 @@ impl Tool for AcpEndSessionTool {
                 })
                 .to_string(),
             ),
-            Err(e) => {
-                ToolResult::error(format!("Failed to end ACP session: {e}"))
-                    .with_error_type("acp_error")
-            }
+            Err(e) => ToolResult::error(format!("Failed to end ACP session: {e}"))
+                .with_error_type("acp_error"),
         }
     }
 }
@@ -406,9 +404,7 @@ mod tests {
     async fn test_end_session_not_found() {
         let manager = test_manager();
         let tool = AcpEndSessionTool::new(manager);
-        let result = tool
-            .execute(json!({"session_id": "nonexistent"}))
-            .await;
+        let result = tool.execute(json!({"session_id": "nonexistent"})).await;
         assert!(result.is_error);
         assert!(result.content.contains("not found"));
     }
@@ -468,11 +464,7 @@ mod tests {
             let required = schema
                 .get("required")
                 .and_then(|v| v.as_array())
-                .map(|arr| {
-                    arr.iter()
-                        .filter_map(|v| v.as_str())
-                        .collect::<Vec<_>>()
-                })
+                .map(|arr| arr.iter().filter_map(|v| v.as_str()).collect::<Vec<_>>())
                 .unwrap_or_default();
 
             if let Some(props) = properties {
@@ -518,7 +510,10 @@ mod tests {
 
         let props = def.input_schema["properties"].as_object().unwrap();
         assert!(props.contains_key("agent"), "Must have 'agent' param");
-        assert!(props.contains_key("workspace"), "Must have 'workspace' param");
+        assert!(
+            props.contains_key("workspace"),
+            "Must have 'workspace' param"
+        );
         assert!(
             props.contains_key("auto_approve"),
             "Must have 'auto_approve' param"

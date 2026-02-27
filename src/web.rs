@@ -1539,7 +1539,11 @@ async fn asset_file(Path(file): Path<String>) -> impl IntoResponse {
 
 async fn icon_file() -> impl IntoResponse {
     match WEB_ASSETS.get_file("icon.svg") {
-        Some(file) => ([("content-type", "image/svg+xml")], file.contents().to_vec()).into_response(),
+        Some(file) => (
+            [("content-type", "image/svg+xml")],
+            file.contents().to_vec(),
+        )
+            .into_response(),
         None => (StatusCode::NOT_FOUND, "Not Found").into_response(),
     }
 }
@@ -1549,7 +1553,11 @@ async fn favicon_file() -> impl IntoResponse {
         return ([("content-type", "image/x-icon")], file.contents().to_vec()).into_response();
     }
     if let Some(file) = WEB_ASSETS.get_file("icon.svg") {
-        return ([("content-type", "image/svg+xml")], file.contents().to_vec()).into_response();
+        return (
+            [("content-type", "image/svg+xml")],
+            file.contents().to_vec(),
+        )
+            .into_response();
     }
     (StatusCode::NOT_FOUND, "Not Found").into_response()
 }

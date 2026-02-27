@@ -211,7 +211,10 @@ impl AcpConnection {
     ) -> Result<Self, String> {
         let mut cmd = build_spawn_command(config, workspace);
 
-        info!("ACP: spawning agent '{agent_name}' ({} {})", config.launch, config.command);
+        info!(
+            "ACP: spawning agent '{agent_name}' ({} {})",
+            config.launch, config.command
+        );
 
         let mut child = cmd
             .spawn()
@@ -306,7 +309,10 @@ impl AcpConnection {
         // Send the notifications/initialized notification (ACP spec).
         // Some agents (e.g. Zed claude-agent-acp) don't implement this
         // notification and return Method-not-found; that's harmless — just log it.
-        if let Err(e) = self.send_notification("notifications/initialized", None).await {
+        if let Err(e) = self
+            .send_notification("notifications/initialized", None)
+            .await
+        {
             debug!(
                 "ACP [{}]: notifications/initialized not supported ({e}), continuing",
                 self.agent_name
@@ -368,10 +374,7 @@ impl AcpConnection {
                     return Err(format!("ACP [{}] read error: {e}", self.agent_name));
                 }
                 Ok(Ok(0)) => {
-                    return Err(format!(
-                        "ACP [{}] agent closed connection",
-                        self.agent_name
-                    ));
+                    return Err(format!("ACP [{}] agent closed connection", self.agent_name));
                 }
                 Ok(Ok(_)) => {}
             }
@@ -397,9 +400,7 @@ impl AcpConnection {
                 // Discard notifications during simple request/response
                 debug!(
                     "ACP [{}] notification during '{}': {:?}",
-                    self.agent_name,
-                    method,
-                    msg.method
+                    self.agent_name, method, msg.method
                 );
                 continue;
             }
@@ -584,10 +585,13 @@ impl AcpConnection {
                 info!(
                     "ACP [{}] agent request: method={method} params={}",
                     self.agent_name,
-                    msg.params.as_ref().map(|p| {
-                        let s = p.to_string();
-                        s[..s.len().min(300)].to_string()
-                    }).unwrap_or_default()
+                    msg.params
+                        .as_ref()
+                        .map(|p| {
+                            let s = p.to_string();
+                            s[..s.len().min(300)].to_string()
+                        })
+                        .unwrap_or_default()
                 );
 
                 if method == "session/request_permission" {
@@ -631,8 +635,7 @@ impl AcpConnection {
                                 }
                             }
                         });
-                        let mut resp_json =
-                            serde_json::to_string(&response).unwrap_or_default();
+                        let mut resp_json = serde_json::to_string(&response).unwrap_or_default();
                         resp_json.push('\n');
                         let _ = inner.stdin.write_all(resp_json.as_bytes()).await;
                         let _ = inner.stdin.flush().await;
@@ -651,8 +654,7 @@ impl AcpConnection {
                                 }
                             }
                         });
-                        let mut resp_json =
-                            serde_json::to_string(&response).unwrap_or_default();
+                        let mut resp_json = serde_json::to_string(&response).unwrap_or_default();
                         resp_json.push('\n');
                         let _ = inner.stdin.write_all(resp_json.as_bytes()).await;
                         let _ = inner.stdin.flush().await;
@@ -702,8 +704,11 @@ impl AcpConnection {
                                     .and_then(|c| c.get("text"))
                                     .and_then(|t| t.as_str());
                                 if let Some(text) = text {
-                                    debug!("ACP [{}] thought: {}", self.agent_name,
-                                        &text[..text.len().min(100)]);
+                                    debug!(
+                                        "ACP [{}] thought: {}",
+                                        self.agent_name,
+                                        &text[..text.len().min(100)]
+                                    );
                                 }
                             }
                             "tool_call" => {
@@ -739,9 +744,7 @@ impl AcpConnection {
                                     self.agent_name
                                 );
                                 // Capture rawOutput (e.g. command stdout)
-                                if let Some(raw) = update
-                                    .and_then(|u| u.get("rawOutput"))
-                                {
+                                if let Some(raw) = update.and_then(|u| u.get("rawOutput")) {
                                     let output_str = match raw {
                                         serde_json::Value::String(s) => s.clone(),
                                         other => other.to_string(),
@@ -756,13 +759,13 @@ impl AcpConnection {
                                     .and_then(|c| c.as_array())
                                 {
                                     for item in content_arr {
-                                        let content_type = item.get("type")
-                                            .and_then(|t| t.as_str())
-                                            .unwrap_or("");
+                                        let content_type =
+                                            item.get("type").and_then(|t| t.as_str()).unwrap_or("");
                                         match content_type {
                                             "content" => {
                                                 // Inline text content
-                                                if let Some(text) = item.get("content")
+                                                if let Some(text) = item
+                                                    .get("content")
                                                     .and_then(|c| c.get("text"))
                                                     .and_then(|t| t.as_str())
                                                 {
@@ -797,10 +800,7 @@ impl AcpConnection {
                         }
                     }
                     _ => {
-                        debug!(
-                            "ACP [{}] unhandled notification: {method}",
-                            self.agent_name
-                        );
+                        debug!("ACP [{}] unhandled notification: {method}", self.agent_name);
                     }
                 }
             }
@@ -901,12 +901,7 @@ impl AcpManager {
             info!(
                 "ACP config loaded: {} agent(s) configured ({})",
                 config.agents.len(),
-                config
-                    .agents
-                    .keys()
-                    .cloned()
-                    .collect::<Vec<_>>()
-                    .join(", ")
+                config.agents.keys().cloned().collect::<Vec<_>>().join(", ")
             );
         }
         AcpManager {
@@ -968,10 +963,13 @@ impl AcpManager {
             .canonicalize()
             .unwrap_or_else(|_| std::path::PathBuf::from(&effective_workspace));
         let acp_session_id = match connection
-            .send_request("session/new", Some(serde_json::json!({
-                "cwd": cwd.to_string_lossy(),
-                "mcpServers": []
-            })))
+            .send_request(
+                "session/new",
+                Some(serde_json::json!({
+                    "cwd": cwd.to_string_lossy(),
+                    "mcpServers": []
+                })),
+            )
             .await
         {
             Ok(result) => result
@@ -979,7 +977,10 @@ impl AcpManager {
                 .and_then(|v| v.as_str())
                 .map(|s| s.to_string()),
             Err(e) => {
-                warn!("ACP [{}]: session/new failed ({e}), continuing without ACP session ID", agent_id);
+                warn!(
+                    "ACP [{}]: session/new failed ({e}), continuing without ACP session ID",
+                    agent_id
+                );
                 None
             }
         };
@@ -1032,9 +1033,7 @@ impl AcpManager {
         }
         session.status = SessionStatus::Prompting;
 
-        let timeout = Duration::from_secs(
-            timeout_secs.unwrap_or(self.config.prompt_timeout_secs),
-        );
+        let timeout = Duration::from_secs(timeout_secs.unwrap_or(self.config.prompt_timeout_secs));
 
         let acp_sid = session
             .acp_session_id
@@ -1368,10 +1367,8 @@ mod tests {
     #[test]
     fn test_jsonrpc_message_classification() {
         // Response
-        let resp: JsonRpcMessage = serde_json::from_str(
-            r#"{"jsonrpc":"2.0","id":1,"result":{"ok":true}}"#,
-        )
-        .unwrap();
+        let resp: JsonRpcMessage =
+            serde_json::from_str(r#"{"jsonrpc":"2.0","id":1,"result":{"ok":true}}"#).unwrap();
         assert!(resp.is_response());
         assert!(!resp.is_notification());
 
@@ -1521,12 +1518,12 @@ mod tests {
         let cmd = build_spawn_command(&config, None);
         let envs: Vec<_> = cmd.as_std().get_envs().collect();
         // Verify our env vars are set (they should be among the envs)
-        let has_key1 = envs
-            .iter()
-            .any(|(k, v)| k == &std::ffi::OsStr::new("KEY1") && v == &Some(std::ffi::OsStr::new("val1")));
-        let has_key2 = envs
-            .iter()
-            .any(|(k, v)| k == &std::ffi::OsStr::new("KEY2") && v == &Some(std::ffi::OsStr::new("val2")));
+        let has_key1 = envs.iter().any(|(k, v)| {
+            k == &std::ffi::OsStr::new("KEY1") && v == &Some(std::ffi::OsStr::new("val1"))
+        });
+        let has_key2 = envs.iter().any(|(k, v)| {
+            k == &std::ffi::OsStr::new("KEY2") && v == &Some(std::ffi::OsStr::new("val2"))
+        });
         assert!(has_key1, "KEY1 env var should be set");
         assert!(has_key2, "KEY2 env var should be set");
     }

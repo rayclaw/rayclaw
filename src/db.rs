@@ -1848,11 +1848,7 @@ impl Database {
     }
 
     #[cfg(feature = "sqlite-vec")]
-    pub fn upsert_memory_vec(
-        &self,
-        memory_id: i64,
-        embedding: &[f32],
-    ) -> Result<(), RayClawError> {
+    pub fn upsert_memory_vec(&self, memory_id: i64, embedding: &[f32]) -> Result<(), RayClawError> {
         let conn = self.lock_conn();
         let vector_json = serde_json::to_string(embedding)?;
         conn.execute(

@@ -351,10 +351,7 @@ async fn maybe_handle_acp(
                     .await
                 {
                     Ok(info) => {
-                        state
-                            .acp_manager
-                            .bind_chat(chat_id, &info.session_id)
-                            .await;
+                        state.acp_manager.bind_chat(chat_id, &info.session_id).await;
                         Ok(Some(format!(
                             "ACP session started.\nAgent: {}\nWorkspace: {}\nSession: {}\n\nSend messages to interact with the agent. Use #end to stop.",
                             info.agent_id, info.workspace, info.session_id
@@ -420,11 +417,7 @@ async fn maybe_handle_acp(
         // Not a # command — check if chat has an active ACP session
         if let Some(session_id) = state.acp_manager.chat_session(chat_id).await {
             // Route to ACP agent
-            match state
-                .acp_manager
-                .prompt(&session_id, trimmed, None)
-                .await
-            {
+            match state.acp_manager.prompt(&session_id, trimmed, None).await {
                 Ok(result) => {
                     let mut output = String::new();
 
@@ -443,10 +436,7 @@ async fn maybe_handle_acp(
                         if !output.is_empty() {
                             output.push_str("\n\n");
                         }
-                        output.push_str(&format!(
-                            "[{} tool call(s)]",
-                            result.tool_calls.len()
-                        ));
+                        output.push_str(&format!("[{} tool call(s)]", result.tool_calls.len()));
                     }
 
                     if output.is_empty() {
@@ -477,7 +467,10 @@ pub(crate) async fn process_with_agent_impl(
     // If another agent loop is already running for this chat_id, we wait for it to finish.
     let chat_lock = {
         let mut locks = state.chat_locks.lock().await;
-        locks.entry(chat_id).or_insert_with(|| std::sync::Arc::new(tokio::sync::Mutex::new(()))).clone()
+        locks
+            .entry(chat_id)
+            .or_insert_with(|| std::sync::Arc::new(tokio::sync::Mutex::new(())))
+            .clone()
     };
     let _guard = chat_lock.lock().await;
     info!("Acquired chat lock for chat_id={chat_id}");
@@ -490,9 +483,7 @@ pub(crate) async fn process_with_agent_impl(
     }
 
     // Handle ACP commands (#new, #end, etc.) and route to agent if session active
-    if let Some(reply) =
-        maybe_handle_acp(state, chat_id, override_prompt, &image_data).await?
-    {
+    if let Some(reply) = maybe_handle_acp(state, chat_id, override_prompt, &image_data).await? {
         return Ok(reply);
     }
 

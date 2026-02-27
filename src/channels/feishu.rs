@@ -894,9 +894,8 @@ async fn download_feishu_image(
     message_id: &str,
     file_key: &str,
 ) -> Result<Vec<u8>, String> {
-    let url = format!(
-        "{base_url}/open-apis/im/v1/messages/{message_id}/resources/{file_key}?type=image"
-    );
+    let url =
+        format!("{base_url}/open-apis/im/v1/messages/{message_id}/resources/{file_key}?type=image");
     let resp = http_client
         .get(&url)
         .header("Authorization", format!("Bearer {token}"))
@@ -925,7 +924,10 @@ async fn download_feishu_image(
 fn extract_image_key(content_raw: &str, message_type: &str) -> Option<String> {
     let v: serde_json::Value = serde_json::from_str(content_raw).ok()?;
     match message_type {
-        "image" => v.get("image_key").and_then(|k| k.as_str()).map(|s| s.to_string()),
+        "image" => v
+            .get("image_key")
+            .and_then(|k| k.as_str())
+            .map(|s| s.to_string()),
         "post" => {
             // Helper: scan a content array for img elements
             let scan_content = |content_arr: &[serde_json::Value]| -> Option<String> {
@@ -933,9 +935,7 @@ fn extract_image_key(content_raw: &str, message_type: &str) -> Option<String> {
                     if let Some(elements) = line.as_array() {
                         for elem in elements {
                             if elem.get("tag").and_then(|t| t.as_str()) == Some("img") {
-                                if let Some(key) =
-                                    elem.get("image_key").and_then(|k| k.as_str())
-                                {
+                                if let Some(key) = elem.get("image_key").and_then(|k| k.as_str()) {
                                     return Some(key.to_string());
                                 }
                             }
@@ -1329,13 +1329,23 @@ async fn handle_feishu_event(
     if let Some(ref key) = image_key {
         // Need a token to download the image
         let http_client = reqwest::Client::new();
-        match get_token(&http_client, base_url, &feishu_cfg.app_id, &feishu_cfg.app_secret).await {
+        match get_token(
+            &http_client,
+            base_url,
+            &feishu_cfg.app_id,
+            &feishu_cfg.app_secret,
+        )
+        .await
+        {
             Ok(token) => {
                 match download_feishu_image(&http_client, base_url, &token, message_id, key).await {
                     Ok(bytes) => {
                         let b64 = image_utils::base64_encode(&bytes);
                         let media = image_utils::guess_image_media_type(&bytes);
-                        info!("Feishu image downloaded: key={key}, size={}, type={media}", bytes.len());
+                        info!(
+                            "Feishu image downloaded: key={key}, size={}, type={media}",
+                            bytes.len()
+                        );
                         image_data = Some((b64, media));
                     }
                     Err(e) => {
@@ -1350,7 +1360,9 @@ async fn handle_feishu_event(
     }
 
     // For pure image messages, replace raw JSON content with a clean prompt
-    let text = if has_image && (text.trim().is_empty() || (message_type == "image" && text.trim().starts_with('{'))) {
+    let text = if has_image
+        && (text.trim().is_empty() || (message_type == "image" && text.trim().starts_with('{')))
+    {
         "Please analyze this image.".to_string()
     } else {
         text

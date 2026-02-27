@@ -12,10 +12,8 @@ use tracing::warn;
 async fn shutdown_signal() -> &'static str {
     use tokio::signal::unix::{signal, SignalKind};
 
-    let mut sigterm =
-        signal(SignalKind::terminate()).expect("failed to register SIGTERM handler");
-    let mut sighup =
-        signal(SignalKind::hangup()).expect("failed to register SIGHUP handler");
+    let mut sigterm = signal(SignalKind::terminate()).expect("failed to register SIGTERM handler");
+    let mut sighup = signal(SignalKind::hangup()).expect("failed to register SIGHUP handler");
 
     tokio::select! {
         _ = tokio::signal::ctrl_c() => "SIGINT (Ctrl-C)",

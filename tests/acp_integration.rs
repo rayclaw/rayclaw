@@ -263,13 +263,23 @@ async fn test_mock_agent_full_lifecycle() {
     let result = result.unwrap();
     assert!(result.completed);
     // Mock agent sends session/update notifications with AgentMessageChunk and ToolCall
-    assert!(!result.messages.is_empty(), "Should have messages from session/update");
-    assert!(!result.tool_calls.is_empty(), "Should have tool calls from session/update");
+    assert!(
+        !result.messages.is_empty(),
+        "Should have messages from session/update"
+    );
+    assert!(
+        !result.tool_calls.is_empty(),
+        "Should have tool calls from session/update"
+    );
     assert_eq!(result.tool_calls[0].name, "bash");
 
     // 5. End the session
     let end_result = manager.end_session(&info.session_id).await;
-    assert!(end_result.is_ok(), "end_session failed: {:?}", end_result.err());
+    assert!(
+        end_result.is_ok(),
+        "end_session failed: {:?}",
+        end_result.err()
+    );
 
     // 6. Verify session is gone
     let sessions = manager.list_sessions().await;
@@ -399,9 +409,10 @@ fn mock_manager_error_mode() -> AcpManager {
             launch: "binary".to_string(),
             command: "python3".to_string(),
             args: vec![mock_agent_path()],
-            env: std::collections::HashMap::from([
-                ("ACP_MOCK_MODE".to_string(), "error".to_string()),
-            ]),
+            env: std::collections::HashMap::from([(
+                "ACP_MOCK_MODE".to_string(),
+                "error".to_string(),
+            )]),
             workspace: Some("/tmp".to_string()),
             auto_approve: Some(true),
         },
@@ -418,10 +429,7 @@ fn mock_manager_error_mode() -> AcpManager {
 async fn test_mock_agent_prompt_error_propagates() {
     let manager = mock_manager_error_mode();
 
-    let info = manager
-        .new_session("mock-error", None, None)
-        .await
-        .unwrap();
+    let info = manager.new_session("mock-error", None, None).await.unwrap();
     let result = manager.prompt(&info.session_id, "will fail", None).await;
 
     assert!(result.is_err());
