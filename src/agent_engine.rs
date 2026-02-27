@@ -2002,7 +2002,7 @@ mod tests {
     fn test_build_system_prompt_without_soul() {
         let prompt = super::build_system_prompt("testbot", "telegram", "", 42, "", None);
         assert!(!prompt.contains("<soul>"));
-        assert!(prompt.contains("a helpful AI assistant across chat channels"));
+        assert!(prompt.contains("an agentic AI assistant operating across chat channels"));
     }
 
     #[test]

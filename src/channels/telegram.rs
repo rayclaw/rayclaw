@@ -1546,7 +1546,7 @@ mod tests {
     fn test_build_system_prompt_mentions_schedule() {
         let prompt = build_system_prompt("testbot", "telegram", "", 12345, "", None);
         assert!(prompt.contains("schedule_task"));
-        assert!(prompt.contains("6-field cron"));
+        assert!(prompt.contains("6 fields"));
     }
 
     #[test]
