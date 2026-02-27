@@ -14,7 +14,7 @@
 
 [Unit]
 Description=RayClaw AI Bot
-Documentation=https://github.com/stevensu1977/rayclaw
+Documentation=https://github.com/rayclaw/rayclaw
 After=network-online.target
 Wants=network-online.target
 

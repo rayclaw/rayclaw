@@ -14,7 +14,7 @@ set -euo pipefail
 # -------------------------------------------------------------------
 
 ROOT_DIR=$(cd "$(dirname "$0")/.." && pwd)
-GITHUB_REPO="${RAYCLAW_GITHUB_REPO:-stevensu1977/rayclaw}"
+GITHUB_REPO="${RAYCLAW_GITHUB_REPO:-rayclaw/rayclaw}"
 
 require_cmd() {
   if ! command -v "$1" >/dev/null 2>&1; then
