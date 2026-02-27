@@ -2,11 +2,22 @@ use include_dir::{include_dir, Dir, DirEntry};
 use std::path::Path;
 
 static BUILTIN_SKILLS_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/rayclaw.data/skills");
+static DEFAULT_SOUL: &str = include_str!("../SOUL.md");
 
 pub fn ensure_builtin_skills(data_root: &Path) -> std::io::Result<()> {
     let skills_root = data_root.join("skills");
     std::fs::create_dir_all(&skills_root)?;
     copy_missing_entries(&BUILTIN_SKILLS_DIR, &skills_root)
+}
+
+/// Write the default SOUL.md into `data_root/SOUL.md` if none exists yet.
+pub fn ensure_default_soul(data_root: &Path) -> std::io::Result<()> {
+    let soul_path = data_root.join("SOUL.md");
+    if !soul_path.exists() {
+        std::fs::create_dir_all(data_root)?;
+        std::fs::write(&soul_path, DEFAULT_SOUL)?;
+    }
+    Ok(())
 }
 
 fn copy_missing_entries(embedded: &Dir<'_>, destination: &Path) -> std::io::Result<()> {

@@ -165,6 +165,7 @@ async fn main() -> anyhow::Result<()> {
     let skills_data_dir = config.skills_data_dir();
     migrate_legacy_runtime_layout(&data_root_dir, Path::new(&runtime_data_dir));
     builtin_skills::ensure_builtin_skills(&data_root_dir)?;
+    builtin_skills::ensure_default_soul(&data_root_dir)?;
 
     if std::env::var("RAYCLAW_GATEWAY").is_ok() {
         logging::init_logging(&runtime_data_dir)?;
