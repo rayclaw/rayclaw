@@ -60,7 +60,7 @@ iwr https://rayclaw.ai/install.ps1 -UseBasicParsing | iex
 
 This installer only does one thing:
 - Download and install the matching prebuilt binary from the latest GitHub release
-- It does not fallback to Homebrew/Cargo inside `install.sh` (use separate methods below)
+- It does not fallback to Cargo inside `install.sh` (use source build below)
 
 ### Preflight diagnostics
 
@@ -90,13 +90,6 @@ Windows PowerShell:
 
 ```powershell
 iwr https://rayclaw.ai/uninstall.ps1 -UseBasicParsing | iex
-```
-
-### Homebrew (macOS)
-
-```sh
-brew tap everettjf/tap
-brew install rayclaw
 ```
 
 ### From source
@@ -463,7 +456,7 @@ When `web_enabled: true`, RayClaw serves a local Web UI (default `http://127.0.0
 
 ## Release
 
-Publish both installer mode (GitHub Release asset used by `install.sh`) and Homebrew mode with one command:
+Publish installer mode (GitHub Release asset used by `install.sh`):
 
 ```sh
 ./deploy.sh

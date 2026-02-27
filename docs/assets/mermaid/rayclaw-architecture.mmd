@@ -1,0 +1,58 @@
+%%{init: {'theme': 'base', 'themeVariables': {'primaryColor': '#4A90D9', 'primaryTextColor': '#fff', 'primaryBorderColor': '#2E6BA6', 'lineColor': '#5B6B7A', 'secondaryColor': '#F0F4F8', 'tertiaryColor': '#E8F5E9', 'fontSize': '14px'}}}%%
+graph TB
+    subgraph Channels["Channels"]
+        direction LR
+        TG["🤖 Telegram<br/>teloxide"]
+        DC["🎮 Discord<br/>serenity"]
+        SL["💬 Slack<br/>Socket Mode"]
+        FS["🐦 Feishu/Lark<br/>WebSocket"]
+        WEB["🌐 Web UI<br/>React + axum"]
+    end
+
+    subgraph Core["Agent Engine"]
+        direction TB
+        AE["Agent Loop<br/>process_with_agent"]
+        SP["System Prompt Builder<br/>SOUL.md + Skills + Memory"]
+        CC["Context Compaction<br/>Summarize old messages"]
+        SA["Sub-Agent<br/>Restricted tool set"]
+    end
+
+    subgraph LLM["LLM Providers"]
+        direction LR
+        AN["Anthropic<br/>Native API"]
+        OA["OpenAI-Compatible<br/>OpenRouter / DeepSeek / Ollama / ..."]
+    end
+
+    subgraph Tools["Tool Registry (27+)"]
+        direction LR
+        T1["bash<br/>read/write/edit"]
+        T2["glob / grep<br/>web_search / web_fetch"]
+        T3["memory<br/>schedule<br/>send_message"]
+        T4["todo<br/>skills<br/>sub_agent"]
+    end
+
+    subgraph Storage["Persistence"]
+        direction LR
+        DB[("SQLite WAL<br/>sessions / messages<br/>tasks / memories")]
+        MEM["AGENTS.md<br/>Global + Per-chat"]
+    end
+
+    subgraph External["External Integrations"]
+        direction LR
+        MCP["MCP Servers<br/>stdio / streamable_http"]
+        ACP["ACP Agents<br/>Claude Code / OpenCode<br/>Gemini CLI"]
+    end
+
+    SCH["Scheduler<br/>60s poll · cron tasks<br/>Memory Reflector"]
+
+    TG & DC & SL & FS & WEB --> AE
+    AE <--> SP
+    AE <--> CC
+    AE --> SA
+    AE <--> LLM
+    AE <--> Tools
+    Tools <--> Storage
+    Tools <--> MCP
+    Tools <--> ACP
+    SCH <--> DB
+    SCH --> AE

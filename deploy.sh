@@ -2,57 +2,38 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
-MODE="${1:-all}" # all|release
 
 usage() {
   cat <<'EOF'
 Usage:
-  ./deploy.sh [all|release]
+  ./deploy.sh
 
-Modes:
-  all      Publish GitHub Release asset (installer mode) + update Homebrew tap (default)
-  release  Alias of all (kept for clarity)
-
-Notes:
-  - This script delegates to scripts/release_homebrew.sh.
-  - Configure TAP_DIR if your local tap checkout is not in the default path.
+Workflow:
+  1. Run cargo clippy
+  2. Bump version, build web + binary, create tarball
+  3. Push commit, wait for CI, create GitHub Release with asset
+  4. install.sh fetches the release asset for Linux/macOS
 EOF
 }
 
-case "$MODE" in
+case "${1:-}" in
   -h|--help|help)
     usage
     exit 0
-    ;;
-  all|release)
-    ;;
-  *)
-    echo "Unknown mode: $MODE" >&2
-    usage >&2
-    exit 1
     ;;
 esac
 
 cd "$ROOT_DIR"
 
-if [ ! -x "$ROOT_DIR/scripts/release_homebrew.sh" ]; then
-  echo "Missing executable: scripts/release_homebrew.sh" >&2
+if [ ! -x "$ROOT_DIR/scripts/release.sh" ]; then
+  echo "Missing executable: scripts/release.sh" >&2
   exit 1
 fi
 
 echo "Running pre-deploy checks..."
 cargo clippy --all-targets -- -D warnings
 
-echo "Starting deploy ($MODE)..."
-"$ROOT_DIR/scripts/release_homebrew.sh"
-
-
+echo "Starting release..."
+"$ROOT_DIR/scripts/release.sh"
 
 echo "Deploy complete."
-
-
-cd website
-sh ./deploy_pages.sh
-cd ..
-
-echo "ALL DONE"

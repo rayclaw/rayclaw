@@ -1,0 +1,24 @@
+%%{init: {'theme': 'base', 'themeVariables': {'primaryColor': '#4A90D9', 'primaryTextColor': '#fff', 'primaryBorderColor': '#2E6BA6', 'lineColor': '#5B6B7A', 'secondaryColor': '#F0F4F8', 'tertiaryColor': '#E8F5E9', 'fontSize': '14px'}}}%%
+graph TB
+    USER["User: Complex task request"] --> AE["Agent Engine"]
+
+    AE --> PLAN["todo_write<br/>Create plan"]
+
+    PLAN --> TODO["TODO.json<br/>{chat_id}/TODO.json"]
+
+    TODO --> STEP1["Step 1: pending → in_progress"]
+    STEP1 --> EXEC1["Execute with tools<br/>bash · read · write · edit"]
+    EXEC1 --> DONE1["Step 1: completed ✓"]
+
+    DONE1 --> STEP2["Step 2: pending → in_progress"]
+    STEP2 --> EXEC2["Execute with tools"]
+    EXEC2 --> DONE2["Step 2: completed ✓"]
+
+    DONE2 --> STEPN["Step N: pending → in_progress"]
+    STEPN --> EXECN["Execute with tools"]
+    EXECN --> DONEN["Step N: completed ✓"]
+
+    DONEN --> READ["todo_read<br/>Check progress"]
+    READ --> REPORT["Report results to user"]
+
+    AE -->|"mid-progress"| SEND["send_message<br/>Progress updates"]

@@ -1,0 +1,29 @@
+%%{init: {'theme': 'base', 'themeVariables': {'primaryColor': '#4A90D9', 'primaryTextColor': '#fff', 'primaryBorderColor': '#2E6BA6', 'lineColor': '#5B6B7A', 'secondaryColor': '#F0F4F8', 'tertiaryColor': '#E8F5E9', 'fontSize': '14px'}}}%%
+graph TB
+    MSG["Incoming Message"] --> LOAD["Load Session<br/>from SQLite"]
+    LOAD --> BUILD["Build System Prompt<br/>SOUL.md + Skills + Memory"]
+    BUILD --> TYPING["Start Typing Indicator<br/>every 4s"]
+
+    TYPING --> LLM["Call LLM"]
+
+    LLM --> DECIDE{"Response Type?"}
+
+    DECIDE -->|"text (end_turn)"| PERSIST["Persist Session"]
+    PERSIST --> REPLY["Send Reply<br/>split if needed"]
+    REPLY --> STOP["Stop Typing"]
+
+    DECIDE -->|"tool_use"| EXEC["Execute Tool"]
+    EXEC --> RESULT["Tool Result"]
+    RESULT --> APPEND["Append to Messages"]
+    APPEND --> ITER{"Iteration<br/>< max?"}
+    ITER -->|"yes"| LLM
+    ITER -->|"no (100)"| PERSIST
+
+    DECIDE -->|"context too large"| COMPACT["Context Compaction<br/>Summarize old messages<br/>Keep recent N"]
+    COMPACT --> LLM
+
+    subgraph Session["Session Resume"]
+        direction LR
+        SR["Full Vec&lt;Message&gt;<br/>persisted in SQLite"]
+        SR2["Includes tool_use<br/>+ tool_result blocks"]
+    end

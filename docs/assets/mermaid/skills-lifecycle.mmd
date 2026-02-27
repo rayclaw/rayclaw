@@ -1,0 +1,30 @@
+%%{init: {'theme': 'base', 'themeVariables': {'primaryColor': '#4A90D9', 'primaryTextColor': '#fff', 'primaryBorderColor': '#2E6BA6', 'lineColor': '#5B6B7A', 'secondaryColor': '#F0F4F8', 'tertiaryColor': '#E8F5E9', 'fontSize': '14px'}}}%%
+graph TB
+    BOOT["RayClaw Start"] --> DISC["Skill Discovery<br/>rayclaw.data/skills/*/SKILL.md"]
+
+    DISC --> PARSE["Parse Frontmatter<br/>name · description<br/>platforms · deps"]
+
+    PARSE --> FILTER{"Platform &<br/>Dep Filter"}
+    FILTER -->|"unavailable"| HIDE["Hidden from /skills"]
+    FILTER -->|"available"| META["Metadata Injected<br/>~100 tokens/skill"]
+
+    META --> SYS["System Prompt<br/>name + description only"]
+
+    MSG["User Message"] --> AE["Agent Engine"]
+    SYS --> AE
+
+    AE -->|"model decides<br/>skill is relevant"| ACT["activate_skill<br/>tool call"]
+
+    ACT --> LOAD["Load Full SKILL.md<br/>instructions"]
+    LOAD --> AE
+
+    AE --> RESP["Task Completed<br/>per skill instructions"]
+
+    subgraph Builtin["Built-in Skills"]
+        direction LR
+        S1["pdf · docx<br/>xlsx · pptx"]
+        S2["apple-notes<br/>apple-reminders<br/>apple-calendar"]
+        S3["weather<br/>skill-creator<br/>find-skills"]
+    end
+
+    SYNC["sync_skills tool<br/>External registry"] --> DISC

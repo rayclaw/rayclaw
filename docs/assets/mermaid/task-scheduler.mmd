@@ -1,0 +1,39 @@
+%%{init: {'theme': 'base', 'themeVariables': {'primaryColor': '#4A90D9', 'primaryTextColor': '#fff', 'primaryBorderColor': '#2E6BA6', 'lineColor': '#5B6B7A', 'secondaryColor': '#F0F4F8', 'tertiaryColor': '#E8F5E9', 'fontSize': '14px'}}}%%
+graph TB
+    USER["User: 'Every morning at 9am<br/>check the weather'"] --> AE["Agent Engine"]
+
+    AE -->|"schedule_task"| DB[("SQLite<br/>scheduled_tasks")]
+
+    subgraph Scheduler["Background Scheduler"]
+        POLL["Poll every 60s"] --> CHECK{"Any tasks due?"}
+        CHECK -->|"no"| POLL
+        CHECK -->|"yes"| FETCH["Fetch due tasks"]
+    end
+
+    DB <--> Scheduler
+
+    FETCH --> EXEC["Run Agent Loop<br/>with task prompt"]
+    EXEC --> DELIVER["Deliver result<br/>to originating chat"]
+
+    DELIVER --> TG["Telegram"]
+    DELIVER --> DC["Discord"]
+    DELIVER --> SL["Slack"]
+    DELIVER --> FS["Feishu"]
+    DELIVER --> WEB["Web UI"]
+
+    subgraph Manage["Task Management"]
+        direction LR
+        LIST["list_scheduled_tasks"]
+        PAUSE["pause_scheduled_task"]
+        RESUME["resume_scheduled_task"]
+        CANCEL["cancel_scheduled_task"]
+        HIST["get_task_history"]
+    end
+
+    Manage <--> DB
+
+    subgraph Types["Task Types"]
+        direction LR
+        CRON["Recurring<br/>6-field cron"]
+        ONCE["One-time<br/>ISO 8601 datetime"]
+    end

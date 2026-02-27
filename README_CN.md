@@ -69,7 +69,7 @@ iwr https://rayclaw.ai/install.ps1 -UseBasicParsing | iex
 
 安装脚本仅执行一种方式：
 - 从最新 GitHub Release 下载匹配平台的预编译二进制
-- 不在 `install.sh` 内回退到 Homebrew/Cargo（请使用下面的独立方式）
+- 不在 `install.sh` 内回退到 Cargo（请使用下面的源码构建方式）
 
 ### 预检诊断（doctor）
 
@@ -99,13 +99,6 @@ Windows PowerShell：
 
 ```powershell
 iwr https://rayclaw.ai/uninstall.ps1 -UseBasicParsing | iex
-```
-
-### Homebrew (macOS)
-
-```sh
-brew tap everettjf/tap
-brew install rayclaw
 ```
 
 ### 从源码构建
@@ -464,7 +457,7 @@ Todo 列表存储在 `rayclaw.data/runtime/groups/{chat_id}/TODO.json`，跨会�
 
 ## 发布
 
-一条命令同时发布安装脚本模式（GitHub Release 资产）和 Homebrew 模式：
+发布安装脚本模式（GitHub Release 资产）：
 
 ```sh
 ./deploy.sh

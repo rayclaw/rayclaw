@@ -1,0 +1,36 @@
+%%{init: {'theme': 'base', 'themeVariables': {'primaryColor': '#4A90D9', 'primaryTextColor': '#fff', 'primaryBorderColor': '#2E6BA6', 'lineColor': '#5B6B7A', 'secondaryColor': '#F0F4F8', 'tertiaryColor': '#E8F5E9', 'fontSize': '14px'}}}%%
+graph TB
+    MSG["User Message"] --> AE["Agent Engine"]
+
+    AE -->|"read_memory"| FM["File Memory<br/>AGENTS.md"]
+    AE -->|"write_memory"| FM
+    AE -->|"write_memory"| SM["Structured Memory<br/>SQLite memories table"]
+
+    FM --> GL["Global<br/>AGENTS.md"]
+    FM --> PC["Per-Chat<br/>{chat_id}/AGENTS.md"]
+
+    SM --> QG{"Quality Gate<br/>Filter noisy/low-info"}
+    QG -->|pass| UPSERT["Upsert with<br/>confidence + category"]
+    QG -->|reject| DROP["Dropped"]
+
+    REF["Background Reflector<br/>60s cycle"] -->|"extract facts"| SM
+    REF -->|"dedup"| DEDUP{"Dedup Engine"}
+
+    DEDUP -->|"sqlite-vec"| KNN["Semantic KNN"]
+    DEDUP -->|"fallback"| JAC["Keyword + Jaccard"]
+
+    subgraph Injection["Prompt Injection"]
+        direction LR
+        BUD["Token Budget<br/>1500 default"]
+        SEL["Select top-k<br/>by relevance"]
+    end
+
+    SM --> Injection
+    GL & PC --> SYS["System Prompt"]
+    Injection --> SYS
+
+    subgraph Lifecycle["Memory Lifecycle"]
+        direction LR
+        ACT["Active"] --> ARC["Archived<br/>soft archive"]
+        ACT --> LOW["Low Confidence"]
+    end
