@@ -348,7 +348,7 @@ RayClaw 可以通过 ACP（Agent Client Protocol）以子进程方式启动和�
       "command": "@anthropic-ai/claude-code@latest",
       "args": ["--acp"],
       "env": { "ANTHROPIC_API_KEY": "sk-ant-..." },
-      "workspace": "/home/ubuntu/projects"
+      "workspace": "/path/to/projects"
     }
   }
 }

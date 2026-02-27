@@ -347,7 +347,7 @@ Configure agents in `rayclaw.data/acp.json`:
       "command": "@anthropic-ai/claude-code@latest",
       "args": ["--acp"],
       "env": { "ANTHROPIC_API_KEY": "sk-ant-..." },
-      "workspace": "/home/ubuntu/projects"
+      "workspace": "/path/to/projects"
     }
   }
 }

@@ -10,7 +10,7 @@
 #   2. rayclaw.config.yaml is in WorkingDirectory
 #   3. The log file is writable:
 #      sudo touch /var/log/rayclaw.log
-#      sudo chown ubuntu:ubuntu /var/log/rayclaw.log
+#      sudo chown YOUR_USER:YOUR_USER /var/log/rayclaw.log
 
 [Unit]
 Description=RayClaw AI Bot
@@ -20,10 +20,10 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=ubuntu
-Group=ubuntu
-WorkingDirectory=/home/ubuntu/rayclaw
-ExecStart=/home/ubuntu/rayclaw/target/release/rayclaw start
+User=YOUR_USER
+Group=YOUR_USER
+WorkingDirectory=/opt/rayclaw
+ExecStart=/opt/rayclaw/target/release/rayclaw start
 
 # ── Restart policy ──
 Restart=always
@@ -38,7 +38,7 @@ StandardError=append:/var/log/rayclaw.log
 
 # ── Environment ──
 Environment=RUST_LOG=info
-Environment=HOME=/home/ubuntu
+Environment=HOME=/home/YOUR_USER
 # Uncomment to use a custom config path:
 # Environment=RAYCLAW_CONFIG=/etc/rayclaw/config.yaml
 
@@ -56,8 +56,8 @@ NoNewPrivileges=true
 ProtectHome=read-only
 ProtectSystem=strict
 # Allow writes to data dir, working dir, and log
-ReadWritePaths=/home/ubuntu/rayclaw/rayclaw.data
-ReadWritePaths=/home/ubuntu/rayclaw/tmp
+ReadWritePaths=/opt/rayclaw/rayclaw.data
+ReadWritePaths=/opt/rayclaw/tmp
 ReadWritePaths=/var/log/rayclaw.log
 PrivateTmp=true
 

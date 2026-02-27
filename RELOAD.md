@@ -113,7 +113,7 @@ systemd → 3s 后重启新进程
 **流程：**
 ```
 用户 → "@bot 编译重启"
-Bot  → bash: cd /home/ubuntu/rayclaw && scripts/hot-reload.sh
+Bot  → bash: cd <project-dir> && scripts/hot-reload.sh
        ├── 备份 target/release/rayclaw → rayclaw.bak
        ├── cargo build --release
        │   └── 编译期间 Bot 仍在运行，可回复消息
@@ -175,7 +175,7 @@ Bot  → 1. 解析用户意图，构造 Claude Code prompt
 **安全约束：**
 ```
 ⚠️ Claude Code 使用 --dangerously-skip-permissions 模式
-   - 仅允许修改 /home/ubuntu/rayclaw/src/ 下的文件
+   - 仅允许修改 <project-dir>/src/ 下的文件
    - 不允许执行网络请求、安装系统包
    - 不允许修改 .env / config / 密钥文件
    
@@ -323,7 +323,7 @@ ssh ubuntu@server
 tail -100 /var/log/rayclaw.log
 
 # 回滚到上一个工作版本
-cd /home/ubuntu/rayclaw
+cd /opt/rayclaw
 cp target/release/rayclaw.bak target/release/rayclaw
 sudo systemctl restart rayclaw
 
@@ -352,5 +352,5 @@ Phase 4 (自愈/高级)      ← 按需，可以慢慢来
 ---
 
 *文档版本: v1.0 | 2025-02-21*
-*项目: /home/ubuntu/rayclaw*
+*项目: RayClaw*
 *当前二进制: 37MB release, rustc 1.93.1*

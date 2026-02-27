@@ -9,14 +9,14 @@
       "env": {
         "ANTHROPIC_API_KEY": "your-api-key-here"
       },
-      "workspace": "/home/ubuntu/projects",
+      "workspace": "/path/to/projects",
       "auto_approve": true
     },
     "opencode": {
       "launch": "binary",
       "command": "/usr/local/bin/opencode",
       "args": ["acp"],
-      "workspace": "/home/ubuntu/projects"
+      "workspace": "/path/to/projects"
     },
     "gemini": {
       "launch": "npx",
@@ -25,7 +25,7 @@
       "env": {
         "GEMINI_API_KEY": "your-gemini-api-key-here"
       },
-      "workspace": "/home/ubuntu/projects"
+      "workspace": "/path/to/projects"
     }
   }
 }

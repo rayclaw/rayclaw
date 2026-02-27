@@ -8,7 +8,7 @@
 
 set -euo pipefail
 
-PROJECT_DIR="/home/ubuntu/rayclaw"
+PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 BINARY="$PROJECT_DIR/target/release/rayclaw"
 BACKUP="$PROJECT_DIR/target/release/rayclaw.bak"
 LOG="/tmp/rayclaw-reload.log"
