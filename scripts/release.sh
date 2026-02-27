@@ -201,7 +201,11 @@ if [ "$PREV_TAG" = "$TAG" ]; then
   PREV_TAG="$(git tag --list 'v*' --sort=-version:refname | sed -n '2p')"
 fi
 
-sed -i '' "s/^version = \"$CURRENT_VERSION\"/version = \"$NEW_VERSION\"/" Cargo.toml
+if [[ "$(uname -s)" == "Darwin" ]]; then
+  sed -i '' "s/^version = \"$CURRENT_VERSION\"/version = \"$NEW_VERSION\"/" Cargo.toml
+else
+  sed -i "s/^version = \"$CURRENT_VERSION\"/version = \"$NEW_VERSION\"/" Cargo.toml
+fi
 echo "Version bumped: $CURRENT_VERSION -> $NEW_VERSION"
 if [ -n "$PREV_TAG" ]; then
   echo "Previous tag: $PREV_TAG"
