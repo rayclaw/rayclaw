@@ -485,14 +485,14 @@ mod tests {
     #[test]
     fn test_parse_codex_config_default_openai_base_url() {
         let content = r#"
-model_provider = "tabcode"
+model_provider = "custom"
 
-[model_providers.tabcode]
+[model_providers.custom]
 name = "openai"
-base_url = "https://api.tabcode.cc/openai"
+base_url = "https://api.example.com/openai"
 wire_api = "responses"
 "#;
         let base = parse_codex_config_default_openai_base_url(content).unwrap();
-        assert_eq!(base, "https://api.tabcode.cc/openai");
+        assert_eq!(base, "https://api.example.com/openai");
     }
 }

@@ -2581,13 +2581,13 @@ mod tests {
         std::fs::create_dir_all(&temp).unwrap();
         std::fs::write(
             temp.join("config.toml"),
-            "model_provider = \"tabcode\"\n\n[model_providers.tabcode]\nbase_url = \"https://api.tabcode.cc/openai\"\n",
+            "model_provider = \"custom\"\n\n[model_providers.custom]\nbase_url = \"https://api.example.com/openai\"\n",
         )
         .unwrap();
         std::env::set_var("CODEX_HOME", &temp);
 
         let base = resolve_openai_compat_base("openai-codex", "https://ignored.example.com");
-        assert_eq!(base, "https://api.tabcode.cc/openai");
+        assert_eq!(base, "https://api.example.com/openai");
 
         if let Some(prev) = prev_codex_home {
             std::env::set_var("CODEX_HOME", prev);
