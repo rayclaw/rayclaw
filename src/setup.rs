@@ -971,8 +971,7 @@ impl SetupApp {
     fn model_options(&self) -> Vec<String> {
         let provider = self.field_value("LLM_PROVIDER");
         if let Some(preset) = find_provider_preset(&provider) {
-            let mut opts: Vec<String> =
-                preset.models.iter().map(|m| (*m).to_string()).collect();
+            let mut opts: Vec<String> = preset.models.iter().map(|m| (*m).to_string()).collect();
             opts.push("Custom...".to_string());
             opts
         } else {
@@ -1084,8 +1083,7 @@ impl SetupApp {
                 let options = self.model_options();
                 if let Some(chosen) = options.get(picker.selected) {
                     if chosen == "Custom..." {
-                        if let Some(model) = self.fields.iter_mut().find(|f| f.key == "LLM_MODEL")
-                        {
+                        if let Some(model) = self.fields.iter_mut().find(|f| f.key == "LLM_MODEL") {
                             model.value.clear();
                         }
                         self.editing = true;
