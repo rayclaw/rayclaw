@@ -854,10 +854,10 @@ RayClaw 的核心智能体循环是渠道无关的。新增平台时，重点是
 
 RayClaw 的灵感来源于以下项目：
 
-- [OpenClaw](https://github.com/stevensu1977/openclaw) -- 开源 AI 智能体框架
-- [ZeroClaw](https://github.com/stevensu1977/zeroclaw) -- 零依赖 AI 智能体内核
-- [MicroClaw](https://github.com/stevensu1977/microclaw) -- 轻量级 AI 智能体运行时
-- [NanoBot](https://github.com/nicholasgasior/nanobot) -- 极简聊天机器人框架
+- [OpenClaw](https://github.com/openclaw/openclaw) -- 开源 AI 智能体框架
+- [ZeroClaw](https://github.com/zeroclaw-labs/zeroclaw) -- 零依赖 AI 智能体内核
+- [MicroClaw](https://github.com/microclaw/microclaw) -- 轻量级 AI 智能体运行时
+- [NanoBot](https://github.com/HKUDS/nanobot) -- 极简聊天机器人框架
 
 ## 许可证
 

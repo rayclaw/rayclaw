@@ -836,10 +836,10 @@ RayClaw's core loop is channel-agnostic. A new platform integration should mainl
 
 RayClaw draws inspiration from these projects:
 
-- [OpenClaw](https://github.com/stevensu1977/openclaw) -- Open-source AI agent framework
-- [ZeroClaw](https://github.com/stevensu1977/zeroclaw) -- Zero-dependency AI agent core
-- [MicroClaw](https://github.com/stevensu1977/microclaw) -- Lightweight AI agent runtime
-- [NanoBot](https://github.com/nicholasgasior/nanobot) -- Minimal chatbot framework
+- [OpenClaw](https://github.com/openclaw/openclaw) -- Open-source AI agent framework
+- [ZeroClaw](https://github.com/zeroclaw-labs/zeroclaw) -- Zero-dependency AI agent core
+- [MicroClaw](https://github.com/microclaw/microclaw) -- Lightweight AI agent runtime
+- [NanoBot](https://github.com/HKUDS/nanobot) -- Minimal chatbot framework
 
 ## License
 
