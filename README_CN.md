@@ -3,6 +3,7 @@
 
 [English](README.md) | [中文](README_CN.md)
 
+[![crates.io](https://img.shields.io/crates/v/rayclaw.svg)](https://crates.io/crates/rayclaw)
 [![Website](https://img.shields.io/badge/Website-rayclaw.ai-blue)](https://rayclaw.ai)
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/pPXpgN5J)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
@@ -25,6 +26,7 @@ RayClaw 是一个用 Rust 编写的多渠道 AI 智能体运行时。它通过�
 
 - [工作原理](#工作原理)
 - [安装](#安装)
+- [作为 Rust Crate 使用](#作为-rust-crate-使用)
 - [功能特性](#功能特性)
 - [工具列表](#工具列表)
 - [记忆系统](#记忆系统)
@@ -44,6 +46,63 @@ RayClaw 是一个用 Rust 编写的多渠道 AI 智能体运行时。它通过�
 - [新增平台适配器](#新增平台适配器)
 - [文档](#文档)
 - [许可证](#许可证)
+
+## 作为 Rust Crate 使用
+
+RayClaw 已发布到 [crates.io](https://crates.io/crates/rayclaw)，可作为库集成到你自己的 Rust 应用中。
+
+```sh
+cargo add rayclaw
+```
+
+**Feature flags：**
+
+| Feature | 默认启用 | 依赖 | 说明 |
+|---------|---------|------|------|
+| `telegram` | 是 | teloxide | Telegram 渠道适配器 |
+| `discord` | 是 | serenity | Discord 渠道适配器 |
+| `slack` | 是 | -- | Slack 渠道适配器（Socket Mode） |
+| `feishu` | 是 | -- | 飞书/Lark 渠道适配器 |
+| `web` | **否** | axum | 内置 Web UI 和 HTTP API |
+| `all` | 否 | 以上全部 | 便捷选项：启用所有 feature（含 `web`） |
+| `sqlite-vec` | 否 | sqlite-vec | 语义记忆向量检索 |
+
+> **重要：** `web` feature 没有包含在默认 features 中，因为它在编译时通过 `include_dir!` 嵌入预构建的前端资源（`web/dist/`）。Crate 使用者没有这些资源文件。如需 Web UI，请从源码使用 `--features all` 构建。
+
+**最小 SDK 用法（不含渠道和 Web）：**
+
+```toml
+[dependencies]
+rayclaw = { version = "0.1", default-features = false }
+```
+
+```rust
+use rayclaw::sdk::RayClawAgent;
+use rayclaw::config::Config;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let config = Config::load()?;
+    let agent = RayClawAgent::new(config).await?;
+
+    let reply = agent.process_message(1, "Hello!").await?;
+    println!("{reply}");
+    Ok(())
+}
+```
+
+**按需启用渠道：**
+
+```toml
+[dependencies]
+rayclaw = { version = "0.1", features = ["telegram", "discord"] }
+```
+
+**本地编译二进制（全部 features + Web UI）：**
+
+```sh
+cargo build --release --features all
+```
 
 ## 工作原理
 
@@ -88,14 +147,16 @@ curl -fsSL https://rayclaw.ai/uninstall.sh | bash
 ```sh
 git clone https://github.com/rayclaw/rayclaw.git
 cd rayclaw
-cargo build --release
+cargo build --release --features all
 cp target/release/rayclaw /usr/local/bin/
 ```
+
+> **注意：** `web` feature（内置 Web UI）不包含在默认 features 中。本地编译二进制时请使用 `--features all` 以启用所有渠道和 Web UI，否则 Web UI 将不可用。
 
 可选语义记忆构建（默认关闭 sqlite-vec）：
 
 ```sh
-cargo build --release --features sqlite-vec
+cargo build --release --features all,sqlite-vec
 ```
 
 首次启用 sqlite-vec（最短 3 条命令）：

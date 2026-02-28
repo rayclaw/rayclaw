@@ -3,6 +3,7 @@
 
 [English](README.md) | [中文](README_CN.md)
 
+[![crates.io](https://img.shields.io/crates/v/rayclaw.svg)](https://crates.io/crates/rayclaw)
 [![Website](https://img.shields.io/badge/Website-rayclaw.ai-blue)](https://rayclaw.ai)
 [![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/pPXpgN5J)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
@@ -25,6 +26,7 @@ RayClaw is a multi-channel agentic AI runtime written in Rust. It connects to Te
 
 - [How it works](#how-it-works)
 - [Install](#install)
+- [Use as Rust crate](#use-as-rust-crate)
 - [Features](#features)
 - [Tools](#tools)
 - [Memory](#memory)
@@ -79,14 +81,16 @@ curl -fsSL https://rayclaw.ai/uninstall.sh | bash
 ```sh
 git clone https://github.com/rayclaw/rayclaw.git
 cd rayclaw
-cargo build --release
+cargo build --release --features all
 cp target/release/rayclaw /usr/local/bin/
 ```
+
+> **Note:** The `web` feature (built-in Web UI) is not included in default features. When building the binary locally, use `--features all` to enable all channels and Web UI. Without it, the Web UI will not be available.
 
 Optional semantic-memory build (sqlite-vec disabled by default):
 
 ```sh
-cargo build --release --features sqlite-vec
+cargo build --release --features all,sqlite-vec
 ```
 
 First-time sqlite-vec quickstart (3 commands):
@@ -100,6 +104,63 @@ sqlite3 rayclaw.data/runtime/rayclaw.db "SELECT id, chat_id, chat_channel, exter
 In `setup`, set:
 - `embedding_provider` = `openai` or `ollama`
 - provider credentials/base URL/model as needed
+
+## Use as Rust crate
+
+RayClaw is available on [crates.io](https://crates.io/crates/rayclaw) and can be integrated into your own Rust application as a library.
+
+```sh
+cargo add rayclaw
+```
+
+**Feature flags:**
+
+| Feature | Default | Dependencies | Description |
+|---------|---------|-------------|-------------|
+| `telegram` | Yes | teloxide | Telegram channel adapter |
+| `discord` | Yes | serenity | Discord channel adapter |
+| `slack` | Yes | -- | Slack channel adapter (Socket Mode) |
+| `feishu` | Yes | -- | Feishu/Lark channel adapter |
+| `web` | **No** | axum | Built-in Web UI and HTTP API |
+| `all` | No | all above | Convenience: enables all features including `web` |
+| `sqlite-vec` | No | sqlite-vec | Semantic memory with vector search |
+
+> **Important:** The `web` feature is deliberately excluded from defaults because it embeds pre-built frontend assets (`web/dist/`) at compile time via `include_dir!`. Crate consumers don't have these assets. If you need the Web UI, build from source with `--features all`.
+
+**Minimal SDK usage (no channels, no web):**
+
+```toml
+[dependencies]
+rayclaw = { version = "0.1", default-features = false }
+```
+
+```rust
+use rayclaw::sdk::RayClawAgent;
+use rayclaw::config::Config;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let config = Config::load()?;
+    let agent = RayClawAgent::new(config).await?;
+
+    let reply = agent.process_message(1, "Hello!").await?;
+    println!("{reply}");
+    Ok(())
+}
+```
+
+**With specific channels:**
+
+```toml
+[dependencies]
+rayclaw = { version = "0.1", features = ["telegram", "discord"] }
+```
+
+**Local binary build (all features + Web UI):**
+
+```sh
+cargo build --release --features all
+```
 
 ## How it works
 
