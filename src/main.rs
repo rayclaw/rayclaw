@@ -1,7 +1,7 @@
 use rayclaw::config::Config;
 use rayclaw::error::RayClawError;
 use rayclaw::{
-    acp, builtin_skills, db, doctor, gateway, logging, mcp, memory, runtime, setup, skills,
+    acp, builtin_skills, db, doctor, gateway, logging, mcp, memory, runtime, setup, skills, update,
 };
 use std::path::Path;
 use tracing::info;
@@ -20,6 +20,7 @@ Commands:
   setup      Interactive setup wizard (creates rayclaw.config.yaml)
   doctor     Run preflight environment checks
   gateway    Service lifecycle (install / start / stop / status / logs)
+  update     Check for updates and self-update the binary
   version    Print version and exit
   help       Show this message
 
@@ -126,6 +127,10 @@ async fn main() -> anyhow::Result<()> {
         }
         Some("doctor") => {
             doctor::run_cli(&args[2..])?;
+            return Ok(());
+        }
+        Some("update") => {
+            update::run_update(&args[2..]).await?;
             return Ok(());
         }
         Some("version" | "--version" | "-V") => {

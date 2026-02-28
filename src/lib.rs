@@ -26,6 +26,7 @@ pub mod skills;
 pub(crate) mod text;
 pub mod tools;
 pub mod transcribe;
+pub mod update;
 pub mod usage;
 pub mod web;
 pub use channels::discord;
