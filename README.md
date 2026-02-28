@@ -832,6 +832,14 @@ RayClaw's core loop is channel-agnostic. A new platform integration should mainl
 | [CLAUDE.md](CLAUDE.md) | Project context for AI coding assistants |
 | [AGENTS.md](AGENTS.md) | Agent-friendly project reference |
 
+## Acknowledgments
+
+RayClaw draws inspiration from these projects:
+
+- [OpenClaw](https://github.com/stevensu1977/openclaw) -- Open-source AI agent framework
+- [MicroClaw](https://github.com/stevensu1977/microclaw) -- Lightweight AI agent runtime
+- [NanoBot](https://github.com/nicholasgasior/nanobot) -- Minimal chatbot framework
+
 ## License
 
 MIT

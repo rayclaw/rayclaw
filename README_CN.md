@@ -850,6 +850,14 @@ RayClaw 的核心智能体循环是渠道无关的。新增平台时，重点是
 | [CLAUDE.md](CLAUDE.md) | AI 编码助手的项目上下文 |
 | [AGENTS.md](AGENTS.md) | Agent 友好的项目参考 |
 
+## 致谢
+
+RayClaw 的灵感来源于以下项目：
+
+- [OpenClaw](https://github.com/stevensu1977/openclaw) -- 开源 AI 智能体框架
+- [MicroClaw](https://github.com/stevensu1977/microclaw) -- 轻量级 AI 智能体运行时
+- [NanoBot](https://github.com/nicholasgasior/nanobot) -- 极简聊天机器人框架
+
 ## 许可证
 
 MIT
