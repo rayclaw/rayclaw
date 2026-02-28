@@ -3,9 +3,14 @@ name = "rayclaw"
 version = "0.1.5"
 edition = "2021"
 license = "MIT"
+description = "Multi-channel agentic AI runtime with tool-calling, memory, and scheduling"
+repository = "https://github.com/rayclaw/rayclaw"
+keywords = ["ai", "agent", "llm", "chatbot", "runtime"]
+categories = ["api-bindings", "asynchronous"]
 
 [features]
-default = ["telegram", "discord", "slack", "feishu", "web"]
+default = ["telegram", "discord", "slack", "feishu"]
+all = ["telegram", "discord", "slack", "feishu", "web"]
 telegram = ["dep:teloxide"]
 discord = ["dep:serenity"]
 slack = []
