@@ -117,6 +117,7 @@ fn dynamic_field_key(channel: &str, yaml_key: &str) -> String {
 enum ProviderProtocol {
     Anthropic,
     OpenAiCompat,
+    Bedrock,
 }
 
 #[derive(Clone, Copy)]
@@ -213,12 +214,12 @@ const PROVIDER_PRESETS: &[ProviderPreset] = &[
     },
     ProviderPreset {
         id: "bedrock",
-        label: "Amazon AWS Bedrock",
-        protocol: ProviderProtocol::OpenAiCompat,
-        default_base_url: "https://bedrock-runtime.YOUR-REGION.amazonaws.com/openai/v1",
+        label: "Amazon Bedrock (native Converse API)",
+        protocol: ProviderProtocol::Bedrock,
+        default_base_url: "",
         models: &[
-            "anthropic.claude-opus-4-6-v1",
             "anthropic.claude-sonnet-4-5-v2",
+            "anthropic.claude-opus-4-6-v1",
         ],
     },
     ProviderPreset {
@@ -446,6 +447,48 @@ impl SetupApp {
                     required: false,
                     secret: false,
                 },
+                // --- AWS Bedrock fields ---
+                Field {
+                    key: "AWS_REGION".into(),
+                    label: "AWS region (e.g. us-east-1)".into(),
+                    value: existing.get("AWS_REGION").cloned().unwrap_or_default(),
+                    required: false,
+                    secret: false,
+                },
+                Field {
+                    key: "AWS_ACCESS_KEY_ID".into(),
+                    label: "AWS access key ID".into(),
+                    value: existing.get("AWS_ACCESS_KEY_ID").cloned().unwrap_or_default(),
+                    required: false,
+                    secret: false,
+                },
+                Field {
+                    key: "AWS_SECRET_ACCESS_KEY".into(),
+                    label: "AWS secret access key".into(),
+                    value: existing
+                        .get("AWS_SECRET_ACCESS_KEY")
+                        .cloned()
+                        .unwrap_or_default(),
+                    required: false,
+                    secret: true,
+                },
+                Field {
+                    key: "AWS_SESSION_TOKEN".into(),
+                    label: "AWS session token (optional, for temp creds)".into(),
+                    value: existing
+                        .get("AWS_SESSION_TOKEN")
+                        .cloned()
+                        .unwrap_or_default(),
+                    required: false,
+                    secret: true,
+                },
+                Field {
+                    key: "AWS_PROFILE".into(),
+                    label: "AWS profile (optional, from ~/.aws/credentials)".into(),
+                    value: existing.get("AWS_PROFILE").cloned().unwrap_or_default(),
+                    required: false,
+                    secret: false,
+                },
                 Field {
                     key: "DATA_DIR".into(),
                     label: "Data root directory".into(),
@@ -630,6 +673,22 @@ impl SetupApp {
                     if let Some(url) = config.llm_base_url {
                         map.insert("LLM_BASE_URL".into(), url);
                     }
+                    // AWS Bedrock fields
+                    if let Some(v) = config.aws_region {
+                        map.insert("AWS_REGION".into(), v);
+                    }
+                    if let Some(v) = config.aws_access_key_id {
+                        map.insert("AWS_ACCESS_KEY_ID".into(), v);
+                    }
+                    if let Some(v) = config.aws_secret_access_key {
+                        map.insert("AWS_SECRET_ACCESS_KEY".into(), v);
+                    }
+                    if let Some(v) = config.aws_session_token {
+                        map.insert("AWS_SESSION_TOKEN".into(), v);
+                    }
+                    if let Some(v) = config.aws_profile {
+                        map.insert("AWS_PROFILE".into(), v);
+                    }
                     map.insert("DATA_DIR".into(), config.data_dir);
                     map.insert("TIMEZONE".into(), config.timezone);
                     map.insert("WORKING_DIR".into(), config.working_dir);
@@ -668,15 +727,34 @@ impl SetupApp {
         HashMap::new()
     }
 
+    fn is_field_visible(&self, key: &str) -> bool {
+        if key.starts_with("AWS_") {
+            return self
+                .field_value("LLM_PROVIDER")
+                .eq_ignore_ascii_case("bedrock");
+        }
+        true
+    }
+
     fn next(&mut self) {
-        if self.selected + 1 < self.fields.len() {
-            self.selected += 1;
+        let mut idx = self.selected + 1;
+        while idx < self.fields.len() {
+            if self.is_field_visible(&self.fields[idx].key) {
+                self.selected = idx;
+                return;
+            }
+            idx += 1;
         }
     }
 
     fn prev(&mut self) {
-        if self.selected > 0 {
-            self.selected -= 1;
+        let mut idx = self.selected;
+        while idx > 0 {
+            idx -= 1;
+            if self.is_field_visible(&self.fields[idx].key) {
+                self.selected = idx;
+                return;
+            }
         }
     }
 
@@ -1133,6 +1211,11 @@ impl SetupApp {
             "REFLECTOR_ENABLED" => "true".into(),
             "REFLECTOR_INTERVAL_MINS" => "15".into(),
             "MEMORY_TOKEN_BUDGET" => "1500".into(),
+            "AWS_REGION"
+            | "AWS_ACCESS_KEY_ID"
+            | "AWS_SECRET_ACCESS_KEY"
+            | "AWS_SESSION_TOKEN"
+            | "AWS_PROFILE" => String::new(),
             "EMBEDDING_PROVIDER" | "EMBEDDING_API_KEY" | "EMBEDDING_BASE_URL"
             | "EMBEDDING_MODEL" | "EMBEDDING_DIM" => String::new(),
             _ => String::new(),
@@ -1167,7 +1250,15 @@ impl SetupApp {
             | "REFLECTOR_ENABLED"
             | "REFLECTOR_INTERVAL_MINS"
             | "MEMORY_TOKEN_BUDGET" => "App",
-            "LLM_PROVIDER" | "LLM_API_KEY" | "LLM_MODEL" | "LLM_BASE_URL" => "Model",
+            "LLM_PROVIDER"
+            | "LLM_API_KEY"
+            | "LLM_MODEL"
+            | "LLM_BASE_URL"
+            | "AWS_REGION"
+            | "AWS_ACCESS_KEY_ID"
+            | "AWS_SECRET_ACCESS_KEY"
+            | "AWS_SESSION_TOKEN"
+            | "AWS_PROFILE" => "Model",
             "EMBEDDING_PROVIDER" | "EMBEDDING_API_KEY" | "EMBEDDING_BASE_URL"
             | "EMBEDDING_MODEL" | "EMBEDDING_DIM" => "Embedding",
             "ENABLED_CHANNELS" | "TELEGRAM_BOT_TOKEN" | "BOT_USERNAME" | "DISCORD_BOT_TOKEN" => {
@@ -1185,12 +1276,12 @@ impl SetupApp {
                 for f in ch.fields {
                     let expected = dynamic_field_key(ch.name, f.yaml_key);
                     if expected == key {
-                        return 24 + offset;
+                        return 29 + offset;
                     }
                     offset += 1;
                 }
             }
-            return 24 + offset;
+            return 29 + offset;
         }
         match key {
             "DATA_DIR" => 0,
@@ -1203,15 +1294,20 @@ impl SetupApp {
             "LLM_API_KEY" => 11,
             "LLM_MODEL" => 12,
             "LLM_BASE_URL" => 13,
-            "EMBEDDING_PROVIDER" => 14,
-            "EMBEDDING_API_KEY" => 15,
-            "EMBEDDING_BASE_URL" => 16,
-            "EMBEDDING_MODEL" => 17,
-            "EMBEDDING_DIM" => 18,
-            "ENABLED_CHANNELS" => 20,
-            "TELEGRAM_BOT_TOKEN" => 21,
-            "BOT_USERNAME" => 22,
-            "DISCORD_BOT_TOKEN" => 23,
+            "AWS_REGION" => 14,
+            "AWS_ACCESS_KEY_ID" => 15,
+            "AWS_SECRET_ACCESS_KEY" => 16,
+            "AWS_SESSION_TOKEN" => 17,
+            "AWS_PROFILE" => 18,
+            "EMBEDDING_PROVIDER" => 19,
+            "EMBEDDING_API_KEY" => 20,
+            "EMBEDDING_BASE_URL" => 21,
+            "EMBEDDING_MODEL" => 22,
+            "EMBEDDING_DIM" => 23,
+            "ENABLED_CHANNELS" => 25,
+            "TELEGRAM_BOT_TOKEN" => 26,
+            "BOT_USERNAME" => 27,
+            "DISCORD_BOT_TOKEN" => 28,
             _ => usize::MAX,
         }
     }
@@ -1292,6 +1388,15 @@ fn perform_online_validation(
     } else {
         model.to_string()
     };
+
+    if protocol == ProviderProtocol::Bedrock {
+        // Bedrock uses SigV4 signing which is complex for blocking validation.
+        // Skip online LLM validation; the user can test with `rayclaw start`.
+        checks.push(format!(
+            "LLM skipped (bedrock uses SigV4 auth, model={model}). Test with `rayclaw start`."
+        ));
+        return Ok(checks);
+    }
 
     if protocol == ProviderProtocol::Anthropic {
         let mut base = if base_url.is_empty() {
@@ -1560,6 +1665,39 @@ fn save_config_yaml(
         yaml.push_str(&format!("llm_base_url: \"{}\"\n", base_url));
     }
 
+    // AWS Bedrock fields
+    let aws_region = get("AWS_REGION");
+    let aws_access_key_id = get("AWS_ACCESS_KEY_ID");
+    let aws_secret_access_key = get("AWS_SECRET_ACCESS_KEY");
+    let aws_session_token = get("AWS_SESSION_TOKEN");
+    let aws_profile = get("AWS_PROFILE");
+    if !aws_region.is_empty()
+        || !aws_access_key_id.is_empty()
+        || !aws_secret_access_key.is_empty()
+        || !aws_session_token.is_empty()
+        || !aws_profile.is_empty()
+    {
+        yaml.push_str("\n# AWS Bedrock credentials (native Converse API)\n");
+        if !aws_region.is_empty() {
+            yaml.push_str(&format!("aws_region: \"{}\"\n", aws_region));
+        }
+        if !aws_access_key_id.is_empty() {
+            yaml.push_str(&format!("aws_access_key_id: \"{}\"\n", aws_access_key_id));
+        }
+        if !aws_secret_access_key.is_empty() {
+            yaml.push_str(&format!(
+                "aws_secret_access_key: \"{}\"\n",
+                aws_secret_access_key
+            ));
+        }
+        if !aws_session_token.is_empty() {
+            yaml.push_str(&format!("aws_session_token: \"{}\"\n", aws_session_token));
+        }
+        if !aws_profile.is_empty() {
+            yaml.push_str(&format!("aws_profile: \"{}\"\n", aws_profile));
+        }
+    }
+
     yaml.push('\n');
     let data_dir = values
         .get("DATA_DIR")
@@ -1729,6 +1867,9 @@ fn draw_ui(frame: &mut ratatui::Frame<'_>, app: &SetupApp) {
     let mut last_section = "";
     let mut selected_line: usize = 0;
     for (i, f) in app.fields.iter().enumerate() {
+        if !app.is_field_visible(&f.key) {
+            continue;
+        }
         let section = SetupApp::section_for_key(&f.key);
         if section != last_section {
             if !lines.is_empty() {
@@ -1821,6 +1962,7 @@ fn draw_ui(frame: &mut ratatui::Frame<'_>, app: &SetupApp) {
         Line::from("• Ctrl+R: restore field default"),
         Line::from("• F2: validate + online checks"),
         Line::from("• s / Ctrl+S: save config"),
+        Line::from("• q: quit without saving"),
     ])
     .block(
         Block::default()

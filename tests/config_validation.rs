@@ -47,6 +47,11 @@ fn minimal_config() -> Config {
         reflector_interval_mins: 15,
         soul_path: None,
         skip_tool_approval: false,
+        aws_region: None,
+        aws_access_key_id: None,
+        aws_secret_access_key: None,
+        aws_session_token: None,
+        aws_profile: None,
         channels: std::collections::HashMap::new(),
     }
 }

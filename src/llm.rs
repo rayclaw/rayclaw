@@ -43,7 +43,7 @@ fn merge_message_content(prev: &mut Message, other: Message) {
 /// Remove orphaned `ToolResult` blocks whose `tool_use_id` does not match any
 /// `ToolUse` block in the conversation.  This can happen after session
 /// compaction splits a tool_use / tool_result pair.
-fn sanitize_messages(messages: Vec<Message>) -> Vec<Message> {
+pub(crate) fn sanitize_messages(messages: Vec<Message>) -> Vec<Message> {
     // Collect all tool_use IDs from assistant messages (owned to avoid borrow conflicts).
     let known_ids: HashSet<String> = messages
         .iter()
@@ -221,6 +221,10 @@ pub trait LlmProvider: Send + Sync {
 pub fn create_provider(config: &Config) -> Box<dyn LlmProvider> {
     match config.llm_provider.trim().to_lowercase().as_str() {
         "anthropic" => Box::new(AnthropicProvider::new(config)),
+        "bedrock" => Box::new(
+            crate::llm_bedrock::BedrockProvider::new(config)
+                .expect("Failed to initialize Bedrock provider"),
+        ),
         _ => Box::new(OpenAiProvider::new(config)),
     }
 }
@@ -562,7 +566,7 @@ fn process_openai_stream_event(
     }
 }
 
-fn normalize_stop_reason(reason: Option<String>) -> Option<String> {
+pub(crate) fn normalize_stop_reason(reason: Option<String>) -> Option<String> {
     match reason.as_deref() {
         Some("tool_use") | Some("tool_calls") => Some("tool_use".into()),
         Some("max_tokens") | Some("length") => Some("max_tokens".into()),
@@ -571,7 +575,7 @@ fn normalize_stop_reason(reason: Option<String>) -> Option<String> {
     }
 }
 
-fn parse_tool_input(input_json: &str) -> serde_json::Value {
+pub(crate) fn parse_tool_input(input_json: &str) -> serde_json::Value {
     let trimmed = input_json.trim();
     if trimmed.is_empty() {
         return json!({});
@@ -2040,6 +2044,11 @@ mod tests {
             embedding_dim: None,
             reflector_enabled: true,
             reflector_interval_mins: 15,
+            aws_region: None,
+            aws_access_key_id: None,
+            aws_secret_access_key: None,
+            aws_session_token: None,
+            aws_profile: None,
             soul_path: None,
             skip_tool_approval: false,
             channels: std::collections::HashMap::new(),
@@ -2091,6 +2100,11 @@ mod tests {
             embedding_dim: None,
             reflector_enabled: true,
             reflector_interval_mins: 15,
+            aws_region: None,
+            aws_access_key_id: None,
+            aws_secret_access_key: None,
+            aws_session_token: None,
+            aws_profile: None,
             soul_path: None,
             skip_tool_approval: false,
             channels: std::collections::HashMap::new(),
@@ -2207,6 +2221,11 @@ mod tests {
             embedding_dim: None,
             reflector_enabled: true,
             reflector_interval_mins: 15,
+            aws_region: None,
+            aws_access_key_id: None,
+            aws_secret_access_key: None,
+            aws_session_token: None,
+            aws_profile: None,
             soul_path: None,
             skip_tool_approval: false,
             channels: std::collections::HashMap::new(),
@@ -2362,6 +2381,11 @@ mod tests {
             embedding_dim: None,
             reflector_enabled: true,
             reflector_interval_mins: 15,
+            aws_region: None,
+            aws_access_key_id: None,
+            aws_secret_access_key: None,
+            aws_session_token: None,
+            aws_profile: None,
             soul_path: None,
             skip_tool_approval: false,
             channels: std::collections::HashMap::new(),

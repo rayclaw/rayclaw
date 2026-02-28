@@ -21,6 +21,15 @@ model: ""
 # Custom base URL (leave unset to use provider default)
 # llm_base_url: null
 
+# ── Amazon Bedrock (native Converse API) ──────────
+# Set llm_provider: "bedrock" to use the native Converse API.
+# Credentials resolve in order: config fields → env vars → ~/.aws/credentials
+# aws_region: "us-east-1"
+# aws_access_key_id: ""
+# aws_secret_access_key: ""
+# aws_session_token: ""       # optional, for temporary credentials
+# aws_profile: ""             # optional, profile name from ~/.aws/credentials
+
 # Optional per-model token pricing for /usage cost display.
 # USD per 1M tokens. Use "*" as catch-all fallback.
 # model_prices:

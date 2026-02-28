@@ -1715,6 +1715,11 @@ mod tests {
             embedding_dim: None,
             reflector_enabled: true,
             reflector_interval_mins: 15,
+            aws_region: None,
+            aws_access_key_id: None,
+            aws_secret_access_key: None,
+            aws_session_token: None,
+            aws_profile: None,
             soul_path: None,
             skip_tool_approval: false,
             channels: std::collections::HashMap::new(),
@@ -2014,6 +2019,11 @@ mod tests {
 
         let config = Config {
             data_dir: base_dir.to_string_lossy().to_string(),
+            aws_region: None,
+            aws_access_key_id: None,
+            aws_secret_access_key: None,
+            aws_session_token: None,
+            aws_profile: None,
             soul_path: None,
             telegram_bot_token: "tok".into(),
             bot_username: "bot".into(),
@@ -2116,6 +2126,11 @@ mod tests {
             reflector_enabled: true,
             reflector_interval_mins: 15,
             skip_tool_approval: false,
+            aws_region: None,
+            aws_access_key_id: None,
+            aws_secret_access_key: None,
+            aws_session_token: None,
+            aws_profile: None,
             channels: std::collections::HashMap::new(),
         };
 

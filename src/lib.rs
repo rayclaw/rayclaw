@@ -13,6 +13,7 @@ pub mod error;
 pub mod gateway;
 pub mod image_utils;
 pub mod llm;
+pub mod llm_bedrock;
 pub mod llm_types;
 pub mod logging;
 pub mod mcp;

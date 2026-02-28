@@ -28,7 +28,9 @@ pub struct CodexAuthResolved {
 }
 
 pub fn provider_allows_empty_api_key(provider: &str) -> bool {
-    provider.eq_ignore_ascii_case("ollama") || provider.eq_ignore_ascii_case(OPENAI_CODEX_PROVIDER)
+    provider.eq_ignore_ascii_case("ollama")
+        || provider.eq_ignore_ascii_case(OPENAI_CODEX_PROVIDER)
+        || provider.eq_ignore_ascii_case("bedrock")
 }
 
 pub fn is_openai_codex_provider(provider: &str) -> bool {

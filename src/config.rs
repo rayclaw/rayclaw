@@ -203,6 +203,18 @@ pub struct Config {
     #[serde(default = "default_reflector_interval_mins")]
     pub reflector_interval_mins: u64,
 
+    // --- AWS Bedrock ---
+    #[serde(default)]
+    pub aws_region: Option<String>,
+    #[serde(default)]
+    pub aws_access_key_id: Option<String>,
+    #[serde(default)]
+    pub aws_secret_access_key: Option<String>,
+    #[serde(default)]
+    pub aws_session_token: Option<String>,
+    #[serde(default)]
+    pub aws_profile: Option<String>,
+
     // --- Soul ---
     /// Path to a SOUL.md file that defines the bot's personality, voice, and values.
     /// If not set, looks for SOUL.md in data_dir root, then current directory.
@@ -305,6 +317,7 @@ impl Config {
         if self.model.is_empty() {
             self.model = match self.llm_provider.as_str() {
                 "anthropic" => "claude-sonnet-4-5-20250929".into(),
+                "bedrock" => "anthropic.claude-sonnet-4-5-v2".into(),
                 "ollama" => "llama3.2".into(),
                 "openai-codex" => "gpt-5.3-codex".into(),
                 _ => "gpt-5.2".into(),
@@ -589,6 +602,11 @@ mod tests {
             embedding_dim: None,
             reflector_enabled: true,
             reflector_interval_mins: 15,
+            aws_region: None,
+            aws_access_key_id: None,
+            aws_secret_access_key: None,
+            aws_session_token: None,
+            aws_profile: None,
             soul_path: None,
             skip_tool_approval: false,
             channels: HashMap::new(),
