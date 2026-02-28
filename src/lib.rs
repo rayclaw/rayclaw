@@ -21,6 +21,7 @@ pub mod memory;
 pub mod memory_quality;
 pub mod runtime;
 pub mod scheduler;
+pub mod sdk;
 pub mod setup;
 pub mod skills;
 pub(crate) mod text;

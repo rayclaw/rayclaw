@@ -29,6 +29,9 @@ pub enum RayClawError {
 
     #[error("Max tool iterations reached ({0})")]
     MaxIterations(usize),
+
+    #[error("Agent error: {0}")]
+    Agent(String),
 }
 
 #[cfg(test)]

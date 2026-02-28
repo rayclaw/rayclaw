@@ -309,8 +309,16 @@ impl Config {
         ))
     }
 
-    /// Apply post-deserialization normalization and validation.
-    pub(crate) fn post_deserialize(&mut self) -> Result<(), RayClawError> {
+    /// SDK mode validation: normalizes fields and validates LLM config,
+    /// but skips the "at least one channel" requirement.
+    pub fn validate_for_sdk(&mut self) -> Result<(), RayClawError> {
+        self.normalize_fields()?;
+        self.validate_llm()?;
+        Ok(())
+    }
+
+    /// Normalize common fields (provider, model, timezone, paths, etc.).
+    fn normalize_fields(&mut self) -> Result<(), RayClawError> {
         self.llm_provider = self.llm_provider.trim().to_lowercase();
 
         // Apply provider-specific default model if empty
@@ -421,6 +429,44 @@ impl Config {
             self.skip_tool_approval = matches!(val.as_str(), "1" | "true" | "yes");
         }
 
+        Ok(())
+    }
+
+    /// Validate LLM provider and API key configuration.
+    fn validate_llm(&self) -> Result<(), RayClawError> {
+        if self.api_key.is_empty() && !provider_allows_empty_api_key(&self.llm_provider) {
+            return Err(RayClawError::Config("api_key is required".into()));
+        }
+        if is_openai_codex_provider(&self.llm_provider) {
+            if !self.api_key.trim().is_empty() {
+                return Err(RayClawError::Config(
+                    "openai-codex ignores rayclaw.config.yaml api_key. Configure ~/.codex/auth.json or run `codex login` instead.".into(),
+                ));
+            }
+            if self
+                .llm_base_url
+                .as_ref()
+                .map(|v| !v.trim().is_empty())
+                .unwrap_or(false)
+            {
+                return Err(RayClawError::Config(
+                    "openai-codex ignores rayclaw.config.yaml llm_base_url. Configure ~/.codex/config.toml instead.".into(),
+                ));
+            }
+            let has_codex_auth = codex_auth_file_has_access_token()?;
+            if !has_codex_auth {
+                return Err(RayClawError::Config(
+                    "openai-codex requires ~/.codex/auth.json (access token or OPENAI_API_KEY), or OPENAI_CODEX_ACCESS_TOKEN. Run `codex login` or update Codex config files.".into(),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// Apply post-deserialization normalization and validation.
+    pub(crate) fn post_deserialize(&mut self) -> Result<(), RayClawError> {
+        self.normalize_fields()?;
+
         // Synthesize `channels` map from legacy flat fields if empty
         if self.channels.is_empty() {
             if !self.telegram_bot_token.trim().is_empty() {
@@ -478,32 +524,7 @@ impl Config {
                 "At least one channel must be enabled: telegram_bot_token, discord_bot_token, channels.slack, channels.feishu, or web_enabled=true".into(),
             ));
         }
-        if self.api_key.is_empty() && !provider_allows_empty_api_key(&self.llm_provider) {
-            return Err(RayClawError::Config("api_key is required".into()));
-        }
-        if is_openai_codex_provider(&self.llm_provider) {
-            if !self.api_key.trim().is_empty() {
-                return Err(RayClawError::Config(
-                    "openai-codex ignores rayclaw.config.yaml api_key. Configure ~/.codex/auth.json or run `codex login` instead.".into(),
-                ));
-            }
-            if self
-                .llm_base_url
-                .as_ref()
-                .map(|v| !v.trim().is_empty())
-                .unwrap_or(false)
-            {
-                return Err(RayClawError::Config(
-                    "openai-codex ignores rayclaw.config.yaml llm_base_url. Configure ~/.codex/config.toml instead.".into(),
-                ));
-            }
-            let has_codex_auth = codex_auth_file_has_access_token()?;
-            if !has_codex_auth {
-                return Err(RayClawError::Config(
-                    "openai-codex requires ~/.codex/auth.json (access token or OPENAI_API_KEY), or OPENAI_CODEX_ACCESS_TOKEN. Run `codex login` or update Codex config files.".into(),
-                ));
-            }
-        }
+        self.validate_llm()?;
 
         Ok(())
     }

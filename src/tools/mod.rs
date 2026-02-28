@@ -380,6 +380,75 @@ impl ToolRegistry {
         }
     }
 
+    /// Create a tool registry for SDK/library mode.
+    /// Includes all tools except channel-dependent ones (send_message, schedule tools).
+    /// Does not require a ChannelRegistry.
+    pub fn new_for_sdk(config: &Config, db: Arc<Database>) -> Self {
+        let working_dir = PathBuf::from(&config.working_dir);
+        if let Err(e) = std::fs::create_dir_all(&working_dir) {
+            tracing::warn!(
+                "Failed to create working_dir '{}': {}",
+                working_dir.display(),
+                e
+            );
+        }
+        let skills_data_dir = config.skills_data_dir();
+        let tools: Vec<Box<dyn Tool>> = vec![
+            Box::new(bash::BashTool::new_with_isolation(
+                &config.working_dir,
+                config.working_dir_isolation,
+            )),
+            Box::new(browser::BrowserTool::new(&config.data_dir)),
+            Box::new(read_file::ReadFileTool::new_with_isolation(
+                &config.working_dir,
+                config.working_dir_isolation,
+            )),
+            Box::new(write_file::WriteFileTool::new_with_isolation(
+                &config.working_dir,
+                config.working_dir_isolation,
+            )),
+            Box::new(edit_file::EditFileTool::new_with_isolation(
+                &config.working_dir,
+                config.working_dir_isolation,
+            )),
+            Box::new(glob::GlobTool::new_with_isolation(
+                &config.working_dir,
+                config.working_dir_isolation,
+            )),
+            Box::new(grep::GrepTool::new_with_isolation(
+                &config.working_dir,
+                config.working_dir_isolation,
+            )),
+            Box::new(memory::ReadMemoryTool::new(&config.data_dir)),
+            Box::new(memory::WriteMemoryTool::new(&config.data_dir, db.clone())),
+            Box::new(web_fetch::WebFetchTool),
+            Box::new(web_search::WebSearchTool),
+            Box::new(export_chat::ExportChatTool::new(
+                db.clone(),
+                &config.data_dir,
+            )),
+            Box::new(sub_agent::SubAgentTool::new(config, db.clone())),
+            Box::new(activate_skill::ActivateSkillTool::new(&skills_data_dir)),
+            Box::new(sync_skills::SyncSkillsTool::new(&skills_data_dir)),
+            Box::new(todo::TodoReadTool::new(&config.data_dir)),
+            Box::new(todo::TodoWriteTool::new(&config.data_dir)),
+            Box::new(structured_memory::StructuredMemorySearchTool::new(
+                db.clone(),
+            )),
+            Box::new(structured_memory::StructuredMemoryDeleteTool::new(
+                db.clone(),
+            )),
+            Box::new(structured_memory::StructuredMemoryUpdateTool::new(
+                db.clone(),
+            )),
+        ];
+        ToolRegistry {
+            tools,
+            cached_definitions: OnceLock::new(),
+            skip_tool_approval: config.skip_tool_approval,
+        }
+    }
+
     /// Create a restricted tool registry for sub-agents (no side-effect or recursive tools).
     pub fn new_sub_agent(config: &Config, db: Arc<Database>) -> Self {
         let working_dir = PathBuf::from(&config.working_dir);

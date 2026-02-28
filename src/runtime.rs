@@ -53,15 +53,19 @@ pub struct AppState {
     pub chat_locks: ChatLocks,
 }
 
-pub async fn run(
+/// Build an `AppState` without starting any channels, schedulers, or signal handlers.
+/// This is the shared initialization used by both the full `run()` and the SDK entry point.
+#[allow(clippy::too_many_arguments)]
+pub async fn create_app_state(
     config: Config,
-    db: Database,
+    db: Arc<Database>,
+    channel_registry: Arc<ChannelRegistry>,
     memory: MemoryManager,
     skills: SkillManager,
     mcp_manager: crate::mcp::McpManager,
     acp_manager: crate::acp::AcpManager,
-) -> anyhow::Result<()> {
-    let db = Arc::new(db);
+    use_sdk_tools: bool,
+) -> anyhow::Result<Arc<AppState>> {
     let llm = crate::llm::create_provider(&config);
     let embedding = crate::embedding::create_provider(&config);
     #[cfg(feature = "sqlite-vec")]
@@ -75,6 +79,47 @@ pub async fn run(
             warn!("Failed to initialize sqlite-vec index: {e}");
         }
     }
+
+    let mut tools = if use_sdk_tools {
+        ToolRegistry::new_for_sdk(&config, db.clone())
+    } else {
+        ToolRegistry::new(&config, channel_registry.clone(), db.clone())
+    };
+
+    for (server, tool_info) in mcp_manager.all_tools() {
+        tools.add_tool(Box::new(crate::tools::mcp::McpTool::new(server, tool_info)));
+    }
+
+    let acp_manager = Arc::new(acp_manager);
+
+    // Register ACP tools so the model can directly create/prompt/end coding agent sessions.
+    for tool in crate::tools::acp::make_acp_tools(acp_manager.clone()) {
+        tools.add_tool(tool);
+    }
+
+    Ok(Arc::new(AppState {
+        config,
+        channel_registry,
+        db,
+        memory,
+        skills,
+        llm,
+        embedding,
+        tools,
+        acp_manager,
+        chat_locks: Mutex::new(HashMap::new()),
+    }))
+}
+
+pub async fn run(
+    config: Config,
+    db: Database,
+    memory: MemoryManager,
+    skills: SkillManager,
+    mcp_manager: crate::mcp::McpManager,
+    acp_manager: crate::acp::AcpManager,
+) -> anyhow::Result<()> {
+    let db = Arc::new(db);
 
     // Build channel registry from config
     let mut registry = ChannelRegistry::new();
@@ -128,31 +173,17 @@ pub async fn run(
 
     let channel_registry = Arc::new(registry);
 
-    let mut tools = ToolRegistry::new(&config, channel_registry.clone(), db.clone());
-
-    for (server, tool_info) in mcp_manager.all_tools() {
-        tools.add_tool(Box::new(crate::tools::mcp::McpTool::new(server, tool_info)));
-    }
-
-    let acp_manager = Arc::new(acp_manager);
-
-    // Register ACP tools so the model can directly create/prompt/end coding agent sessions.
-    for tool in crate::tools::acp::make_acp_tools(acp_manager.clone()) {
-        tools.add_tool(tool);
-    }
-
-    let state = Arc::new(AppState {
+    let state = create_app_state(
         config,
-        channel_registry,
         db,
+        channel_registry,
         memory,
         skills,
-        llm,
-        embedding,
-        tools,
+        mcp_manager,
         acp_manager,
-        chat_locks: Mutex::new(HashMap::new()),
-    });
+        false,
+    )
+    .await?;
 
     crate::scheduler::spawn_scheduler(state.clone());
     crate::scheduler::spawn_reflector(state.clone());
