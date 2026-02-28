@@ -29,6 +29,9 @@ pub mod tools;
 pub mod transcribe;
 pub mod update;
 pub mod usage;
+#[cfg(feature = "web")]
 pub mod web;
+#[cfg(feature = "discord")]
 pub use channels::discord;
+#[cfg(feature = "telegram")]
 pub use channels::telegram;

@@ -516,7 +516,7 @@ impl Tool for GetTaskHistoryTool {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "web"))]
 mod tests {
     use super::*;
     use crate::channel_adapter::ChannelRegistry;

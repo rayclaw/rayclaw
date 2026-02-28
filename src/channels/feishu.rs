@@ -1660,6 +1660,7 @@ async fn handle_feishu_message(
 
 /// Register Feishu webhook routes on the given axum Router.
 /// Called when connection_mode is "webhook".
+#[cfg(feature = "web")]
 pub fn register_feishu_webhook(router: axum::Router, app_state: Arc<AppState>) -> axum::Router {
     let feishu_cfg: FeishuChannelConfig = match app_state.config.channel_config("feishu") {
         Some(c) => c,

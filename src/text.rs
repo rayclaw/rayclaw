@@ -11,6 +11,7 @@ pub fn floor_char_boundary(s: &str, mut index: usize) -> usize {
     index
 }
 
+#[allow(dead_code)]
 pub fn split_text(text: &str, max_len: usize) -> Vec<String> {
     if text.len() <= max_len {
         return vec![text.to_string()];

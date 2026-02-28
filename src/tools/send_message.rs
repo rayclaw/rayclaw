@@ -231,7 +231,7 @@ impl Tool for SendMessageTool {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "web"))]
 mod tests {
     use super::*;
     use crate::channel_adapter::ChannelRegistry;
@@ -298,6 +298,7 @@ mod tests {
         cleanup(&dir);
     }
 
+    #[cfg(feature = "telegram")]
     #[tokio::test]
     async fn test_send_message_web_caller_cross_chat_denied() {
         let (db, dir) = test_db();

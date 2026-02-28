@@ -1582,7 +1582,7 @@ async fn compact_messages(
     compacted
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "web"))]
 mod tests {
     use super::{build_db_memory_context, process_with_agent, AgentRequestContext};
     use crate::channel_adapter::ChannelRegistry;

@@ -23,8 +23,16 @@ async fn shutdown_signal() -> &'static str {
 }
 
 use crate::channel_adapter::ChannelRegistry;
+#[cfg(feature = "telegram")]
 use crate::channels::telegram::TelegramChannelConfig;
-use crate::channels::{DiscordAdapter, FeishuAdapter, SlackAdapter, TelegramAdapter};
+#[cfg(feature = "telegram")]
+use crate::channels::TelegramAdapter;
+#[cfg(feature = "discord")]
+use crate::channels::DiscordAdapter;
+#[cfg(feature = "slack")]
+use crate::channels::SlackAdapter;
+#[cfg(feature = "feishu")]
+use crate::channels::FeishuAdapter;
 use crate::config::Config;
 use crate::db::Database;
 use crate::embedding::EmbeddingProvider;
@@ -32,6 +40,7 @@ use crate::llm::LlmProvider;
 use crate::memory::MemoryManager;
 use crate::skills::SkillManager;
 use crate::tools::ToolRegistry;
+#[cfg(feature = "web")]
 use crate::web::WebAdapter;
 
 /// Per-chat mutex map to prevent concurrent agent loops for the same chat_id.
@@ -122,11 +131,19 @@ pub async fn run(
     let db = Arc::new(db);
 
     // Build channel registry from config
+    #[allow(unused_mut)]
     let mut registry = ChannelRegistry::new();
-    let mut telegram_bot: Option<teloxide::Bot> = None;
-    let mut discord_token: Option<String> = None;
-    let mut has_slack = false;
 
+    #[cfg(feature = "telegram")]
+    let mut telegram_bot: Option<teloxide::Bot> = None;
+    #[cfg(feature = "discord")]
+    let mut discord_token: Option<String> = None;
+    #[cfg(feature = "slack")]
+    let mut has_slack = false;
+    #[cfg(feature = "feishu")]
+    let mut has_feishu = false;
+
+    #[cfg(feature = "telegram")]
     if let Some(tg_cfg) = config.channel_config::<TelegramChannelConfig>("telegram") {
         if !tg_cfg.bot_token.trim().is_empty() {
             let bot = teloxide::Bot::new(&tg_cfg.bot_token);
@@ -135,6 +152,7 @@ pub async fn run(
         }
     }
 
+    #[cfg(feature = "discord")]
     if let Some(dc_cfg) =
         config.channel_config::<crate::channels::discord::DiscordChannelConfig>("discord")
     {
@@ -144,6 +162,7 @@ pub async fn run(
         }
     }
 
+    #[cfg(feature = "slack")]
     if let Some(slack_cfg) =
         config.channel_config::<crate::channels::slack::SlackChannelConfig>("slack")
     {
@@ -153,7 +172,7 @@ pub async fn run(
         }
     }
 
-    let mut has_feishu = false;
+    #[cfg(feature = "feishu")]
     if let Some(feishu_cfg) =
         config.channel_config::<crate::channels::feishu::FeishuChannelConfig>("feishu")
     {
@@ -167,6 +186,7 @@ pub async fn run(
         }
     }
 
+    #[cfg(feature = "web")]
     if config.web_enabled {
         registry.register(Arc::new(WebAdapter));
     }
@@ -188,6 +208,7 @@ pub async fn run(
     crate::scheduler::spawn_scheduler(state.clone());
     crate::scheduler::spawn_reflector(state.clone());
 
+    #[cfg(feature = "discord")]
     if let Some(ref token) = discord_token {
         let discord_state = state.clone();
         let token = token.clone();
@@ -197,6 +218,7 @@ pub async fn run(
         });
     }
 
+    #[cfg(feature = "slack")]
     if has_slack {
         let slack_state = state.clone();
         info!("Starting Slack bot (Socket Mode)");
@@ -205,6 +227,7 @@ pub async fn run(
         });
     }
 
+    #[cfg(feature = "feishu")]
     if has_feishu {
         let feishu_state = state.clone();
         info!("Starting Feishu bot");
@@ -213,6 +236,7 @@ pub async fn run(
         });
     }
 
+    #[cfg(feature = "web")]
     if state.config.web_enabled {
         let web_state = state.clone();
         info!(
@@ -224,6 +248,22 @@ pub async fn run(
         });
     }
 
+    // Determine whether any non-Telegram channel is active
+    let has_other_channel = {
+        #[allow(unused_mut)]
+        let mut active = false;
+        #[cfg(feature = "web")]
+        { active = active || state.config.web_enabled; }
+        #[cfg(feature = "discord")]
+        { active = active || discord_token.is_some(); }
+        #[cfg(feature = "slack")]
+        { active = active || has_slack; }
+        #[cfg(feature = "feishu")]
+        { active = active || has_feishu; }
+        active
+    };
+
+    #[cfg(feature = "telegram")]
     if let Some(bot) = telegram_bot {
         let result = crate::telegram::start_telegram_bot(state.clone(), bot).await;
 
@@ -231,9 +271,11 @@ pub async fn run(
         info!("Cleaning up ACP sessions...");
         state.acp_manager.cleanup().await;
 
-        result
-    } else if state.config.web_enabled || discord_token.is_some() || has_slack || has_feishu {
-        info!("Running without Telegram adapter; waiting for other channels");
+        return result;
+    }
+
+    if has_other_channel {
+        info!("Waiting for channels (no Telegram adapter)");
         let sig = shutdown_signal().await;
         info!("Received {sig}, starting graceful shutdown...");
 
