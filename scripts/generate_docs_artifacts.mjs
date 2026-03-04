@@ -104,7 +104,7 @@ function parseConfigDefaults() {
 }
 
 function parseProviderPresets() {
-  const text = read('src/setup.rs');
+  const text = read('src/setup_wizard.rs');
   const arrMatch = text.match(/const\s+PROVIDER_PRESETS:\s*&\[ProviderPreset\]\s*=\s*&\[([\s\S]*?)\n\];/);
   if (!arrMatch) {
     throw new Error('Failed to parse PROVIDER_PRESETS');
