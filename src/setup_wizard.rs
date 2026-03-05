@@ -901,7 +901,7 @@ fn step_channels(
                             .cloned()
                             .unwrap_or_else(|| f.default.to_string());
                         let val: String = Input::new()
-                            .with_prompt(&format!("  {}", f.label))
+                            .with_prompt(format!("  {}", f.label))
                             .default(existing_val)
                             .allow_empty(!f.required)
                             .interact_text()

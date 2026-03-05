@@ -85,6 +85,7 @@ fn minimal_config() -> Config {
         aws_secret_access_key: None,
         aws_session_token: None,
         aws_profile: None,
+        skills_dir: None,
         channels: std::collections::HashMap::new(),
     }
 }
