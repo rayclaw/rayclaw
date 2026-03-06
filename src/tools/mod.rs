@@ -3,6 +3,7 @@ pub mod activate_skill;
 pub mod bash;
 pub mod browser;
 pub mod command_runner;
+pub mod crypto_price;
 pub mod edit_file;
 pub mod export_chat;
 pub mod glob;
@@ -324,6 +325,7 @@ impl ToolRegistry {
             Box::new(memory::WriteMemoryTool::new(&config.data_dir, db.clone())),
             Box::new(web_fetch::WebFetchTool),
             Box::new(web_search::WebSearchTool),
+            Box::new(crypto_price::CryptoPriceTool),
             Box::new(send_message::SendMessageTool::new(
                 channel_registry.clone(),
                 db.clone(),
