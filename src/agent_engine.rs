@@ -537,9 +537,9 @@ pub(crate) async fn process_with_agent_impl(
                 *t = "(empty_reply)".to_string();
             }
             MessageContent::Blocks(blocks) => {
-                blocks.retain(|b| {
-                    !matches!(b, ContentBlock::Text { text } if text.trim().is_empty())
-                });
+                blocks.retain(
+                    |b| !matches!(b, ContentBlock::Text { text } if text.trim().is_empty()),
+                );
                 // If all blocks were removed (shouldn't happen), add placeholder
                 if blocks.is_empty() && msg.role == "assistant" {
                     blocks.push(ContentBlock::Text {

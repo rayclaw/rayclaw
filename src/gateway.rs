@@ -39,10 +39,7 @@ fn validate_name(name: &str) -> Result<()> {
             name.len()
         ));
     }
-    if !name
-        .chars()
-        .all(|c| c.is_ascii_alphanumeric() || c == '-')
-    {
+    if !name.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
         return Err(anyhow!(
             "Instance name must contain only alphanumeric characters and hyphens: '{name}'"
         ));
@@ -400,10 +397,7 @@ fn render_linux_unit(ctx: &ServiceContext, name: &str) -> String {
     unit.push_str("After=network.target\n\n");
     unit.push_str("[Service]\n");
     unit.push_str("Type=simple\n");
-    unit.push_str(&format!(
-        "WorkingDirectory={}\n",
-        ctx.working_dir.display()
-    ));
+    unit.push_str(&format!("WorkingDirectory={}\n", ctx.working_dir.display()));
     unit.push_str(&format!("ExecStart={} start\n", ctx.exe_path.display()));
     unit.push_str("Environment=RAYCLAW_GATEWAY=1\n");
     if let Some(config_path) = &ctx.config_path {
