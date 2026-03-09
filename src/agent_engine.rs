@@ -528,6 +528,29 @@ pub(crate) async fn process_with_agent_impl(
         load_messages_from_db(state, chat_id, context.chat_type).await?
     };
 
+    // Sanitize loaded session messages: the Anthropic API rejects blank text
+    // content blocks, so replace any empty assistant text with a placeholder and
+    // strip blank text blocks from Blocks-style content.
+    for msg in messages.iter_mut() {
+        match &mut msg.content {
+            MessageContent::Text(t) if msg.role == "assistant" && t.trim().is_empty() => {
+                *t = "(empty_reply)".to_string();
+            }
+            MessageContent::Blocks(blocks) => {
+                blocks.retain(|b| {
+                    !matches!(b, ContentBlock::Text { text } if text.trim().is_empty())
+                });
+                // If all blocks were removed (shouldn't happen), add placeholder
+                if blocks.is_empty() && msg.role == "assistant" {
+                    blocks.push(ContentBlock::Text {
+                        text: "(empty_reply)".to_string(),
+                    });
+                }
+            }
+            _ => {}
+        }
+    }
+
     // If override_prompt is provided (from scheduler), add it as a user message
     if let Some(prompt) = override_prompt {
         messages.push(Message {
@@ -750,10 +773,18 @@ pub(crate) async fn process_with_agent_impl(
                 continue;
             }
 
-            // Add final assistant message and save session (keep full text including thinking)
+            // Add final assistant message and save session (keep full text including thinking).
+            // The Anthropic API rejects blank text content blocks, so if the model
+            // returned empty text we substitute a placeholder before persisting to
+            // prevent the session from being permanently poisoned.
+            let session_text = if text.trim().is_empty() {
+                "(empty_reply)".to_string()
+            } else {
+                text.clone()
+            };
             messages.push(Message {
                 role: "assistant".into(),
-                content: MessageContent::Text(text.clone()),
+                content: MessageContent::Text(session_text),
             });
             strip_images_for_session(&mut messages);
             if let Ok(json) = serde_json::to_string(&messages) {
