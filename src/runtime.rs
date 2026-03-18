@@ -101,8 +101,31 @@ pub async fn create_app_state(
 
     let acp_manager = Arc::new(acp_manager);
 
+    // Build completion callback for async ACP jobs — delivers results to the
+    // originating chat via the channel adapter.
+    let job_callback: Option<crate::acp::JobCompletionCallback> = if !use_sdk_tools {
+        let cb_registry = channel_registry.clone();
+        let cb_db = db.clone();
+        let cb_bot = config.bot_username.clone();
+        Some(std::sync::Arc::new(move |chat_id: i64, text: String| {
+            let reg = cb_registry.clone();
+            let db = cb_db.clone();
+            let bot = cb_bot.clone();
+            Box::pin(async move {
+                if let Err(e) =
+                    crate::channel::deliver_and_store_bot_message(&reg, db, &bot, chat_id, &text)
+                        .await
+                {
+                    tracing::warn!("ACP job callback: failed to deliver to chat {chat_id}: {e}");
+                }
+            })
+        }))
+    } else {
+        None
+    };
+
     // Register ACP tools so the model can directly create/prompt/end coding agent sessions.
-    for tool in crate::tools::acp::make_acp_tools(acp_manager.clone()) {
+    for tool in crate::tools::acp::make_acp_tools_with_callback(acp_manager.clone(), job_callback) {
         tools.add_tool(tool);
     }
 
@@ -207,6 +230,7 @@ pub async fn run(
 
     crate::scheduler::spawn_scheduler(state.clone());
     crate::scheduler::spawn_reflector(state.clone());
+    crate::acp::spawn_idle_reaper(state.acp_manager.clone());
 
     #[cfg(feature = "discord")]
     if let Some(ref token) = discord_token {

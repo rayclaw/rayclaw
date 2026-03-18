@@ -105,12 +105,15 @@ fn mock_manager() -> AcpManager {
             env: std::collections::HashMap::new(),
             workspace: Some("/tmp".to_string()),
             auto_approve: Some(true),
+            mode: "acp".to_string(),
+            resource_limits: None,
         },
     );
     let config = AcpConfig {
         default_auto_approve: true,
         prompt_timeout_secs: 30,
         agents,
+        ..AcpConfig::default()
     };
     AcpManager::from_config(config)
 }
@@ -193,7 +196,7 @@ fn test_combined_registry_has_all_tools() {
     }
 
     let total_count = registry.definitions().len();
-    assert_eq!(total_count, core_count + 4, "Should have 4 ACP tools added");
+    assert_eq!(total_count, core_count + 6, "Should have 6 ACP tools added");
 
     // Verify all ACP tool names are present
     let all_names: Vec<String> = registry
@@ -260,7 +263,7 @@ async fn test_mock_agent_full_lifecycle() {
 
     // 4. Send a prompt
     let result = manager
-        .prompt(&info.session_id, "write hello world", None)
+        .prompt(&info.session_id, "write hello world", None, None)
         .await;
     assert!(result.is_ok(), "prompt failed: {:?}", result.err());
     let result = result.unwrap();
@@ -295,7 +298,7 @@ async fn test_mock_agent_prompt_collects_notifications() {
 
     let info = manager.new_session("mock", None, None).await.unwrap();
     let result = manager
-        .prompt(&info.session_id, "test notifications", None)
+        .prompt(&info.session_id, "test notifications", None, None)
         .await
         .unwrap();
 
@@ -340,11 +343,11 @@ async fn test_mock_agent_multiple_sessions() {
 
     // Prompt both sessions
     let r1 = manager
-        .prompt(&info1.session_id, "task 1", None)
+        .prompt(&info1.session_id, "task 1", None, None)
         .await
         .unwrap();
     let r2 = manager
-        .prompt(&info2.session_id, "task 2", None)
+        .prompt(&info2.session_id, "task 2", None, None)
         .await
         .unwrap();
 
@@ -381,7 +384,7 @@ async fn test_mock_agent_end_session_then_prompt_fails() {
     manager.end_session(&info.session_id).await.unwrap();
 
     // Prompt on ended session should fail
-    let result = manager.prompt(&info.session_id, "hello", None).await;
+    let result = manager.prompt(&info.session_id, "hello", None, None).await;
     assert!(result.is_err());
     assert!(result.unwrap_err().contains("not found"));
 }
@@ -418,12 +421,15 @@ fn mock_manager_error_mode() -> AcpManager {
             )]),
             workspace: Some("/tmp".to_string()),
             auto_approve: Some(true),
+            mode: "acp".to_string(),
+            resource_limits: None,
         },
     );
     let config = AcpConfig {
         default_auto_approve: true,
         prompt_timeout_secs: 10,
         agents,
+        ..AcpConfig::default()
     };
     AcpManager::from_config(config)
 }
@@ -433,7 +439,7 @@ async fn test_mock_agent_prompt_error_propagates() {
     let manager = mock_manager_error_mode();
 
     let info = manager.new_session("mock-error", None, None).await.unwrap();
-    let result = manager.prompt(&info.session_id, "will fail", None).await;
+    let result = manager.prompt(&info.session_id, "will fail", None, None).await;
 
     assert!(result.is_err());
     let err = result.unwrap_err();
@@ -472,12 +478,15 @@ async fn test_e2e_claude_code() {
             )]),
             workspace: Some("/tmp/rayclaw-e2e-test".to_string()),
             auto_approve: Some(true),
+            mode: "acp".to_string(),
+            resource_limits: None,
         },
     );
     let config = AcpConfig {
         default_auto_approve: true,
         prompt_timeout_secs: 300,
         agents,
+        ..AcpConfig::default()
     };
     let manager = AcpManager::from_config(config);
 
@@ -496,6 +505,7 @@ async fn test_e2e_claude_code() {
         .prompt(
             &info.session_id,
             "Create a file called hello.py that prints 'Hello from RayClaw ACP test'",
+            None,
             None,
         )
         .await
@@ -532,7 +542,7 @@ async fn test_concurrent_sessions() {
         join_set.spawn(async move {
             let info = mgr.new_session("mock", None, None).await.unwrap();
             let result = mgr
-                .prompt(&info.session_id, &format!("concurrent task {i}"), None)
+                .prompt(&info.session_id, &format!("concurrent task {i}"), None, None)
                 .await
                 .unwrap();
             assert!(result.completed);

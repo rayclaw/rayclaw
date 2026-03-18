@@ -386,8 +386,8 @@ async fn maybe_handle_acp(
                         .iter()
                         .map(|s| {
                             format!(
-                                "- {} (agent={}, workspace={}, status={:?})",
-                                s.session_id, s.agent_id, s.workspace, s.status
+                                "- {} (agent={}, workspace={}, status={:?}, idle={}s)",
+                                s.session_id, s.agent_id, s.workspace, s.status, s.idle_secs
                             )
                         })
                         .collect::<Vec<_>>()
@@ -416,10 +416,30 @@ async fn maybe_handle_acp(
     } else {
         // Not a # command — check if chat has an active ACP session
         if let Some(session_id) = state.acp_manager.chat_session(chat_id).await {
+            // Set up progress streaming channel
+            let (progress_tx, progress_rx) = tokio::sync::mpsc::unbounded_channel();
+            let progress_handle = spawn_acp_progress_consumer(
+                progress_rx,
+                state.channel_registry.clone(),
+                state.db.clone(),
+                state.config.bot_username.clone(),
+                chat_id,
+            );
+
             // Route to ACP agent
-            match state.acp_manager.prompt(&session_id, trimmed, None).await {
+            let prompt_result = state.acp_manager.prompt(&session_id, trimmed, None, Some(&progress_tx)).await;
+
+            // Drop sender so the progress consumer task finishes
+            drop(progress_tx);
+            let _ = progress_handle.await;
+
+            match prompt_result {
                 Ok(result) => {
                     let mut output = String::new();
+
+                    if result.context_reset {
+                        output.push_str("[Agent process crashed and was restarted. Previous conversation context was lost.]\n\n");
+                    }
 
                     // Include agent messages
                     for msg in &result.messages {
@@ -452,6 +472,63 @@ async fn maybe_handle_acp(
             Ok(None)
         }
     }
+}
+
+/// Spawn a background task that consumes ACP progress events and periodically
+/// sends status updates to the user's chat. Updates are throttled to at most
+/// once every 5 seconds to avoid flooding. `ToolStart` events are always sent
+/// immediately (debounced).
+fn spawn_acp_progress_consumer(
+    mut rx: tokio::sync::mpsc::UnboundedReceiver<crate::acp::AcpProgressEvent>,
+    registry: std::sync::Arc<crate::channel_adapter::ChannelRegistry>,
+    db: std::sync::Arc<crate::db::Database>,
+    bot_username: String,
+    chat_id: i64,
+) -> tokio::task::JoinHandle<()> {
+    tokio::spawn(async move {
+        use crate::acp::AcpProgressEvent;
+        use std::time::Duration;
+        use tokio::time::Instant;
+
+        let throttle = Duration::from_secs(5);
+        let mut last_sent = Instant::now() - throttle; // allow immediate first send
+
+        while let Some(event) = rx.recv().await {
+            let now = Instant::now();
+            let msg = match &event {
+                AcpProgressEvent::ToolStart { name } => {
+                    if now.duration_since(last_sent) >= throttle {
+                        Some(format!("🔧 Running tool: {name}"))
+                    } else {
+                        None
+                    }
+                }
+                AcpProgressEvent::ToolComplete { name, status } => {
+                    if now.duration_since(last_sent) >= throttle {
+                        Some(format!("✅ {name}: {status}"))
+                    } else {
+                        None
+                    }
+                }
+                AcpProgressEvent::Thinking { .. } => None, // don't send thinking chunks
+            };
+
+            if let Some(text) = msg {
+                last_sent = Instant::now();
+                if let Err(e) = crate::channel::deliver_and_store_bot_message(
+                    &registry,
+                    db.clone(),
+                    &bot_username,
+                    chat_id,
+                    &text,
+                )
+                .await
+                {
+                    warn!("ACP progress delivery failed for chat {chat_id}: {e}");
+                }
+            }
+        }
+    })
 }
 
 pub(crate) async fn process_with_agent_impl(

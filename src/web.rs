@@ -7,7 +7,7 @@ use axum::extract::{Path, Query, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::sse::{Event, KeepAlive, Sse};
 use axum::response::{Html, IntoResponse};
-use axum::routing::{get, post};
+use axum::routing::{delete, get, post};
 use axum::{Json, Router};
 use include_dir::{include_dir, Dir};
 use serde::{Deserialize, Serialize};
@@ -1562,6 +1562,296 @@ async fn favicon_file() -> impl IntoResponse {
     (StatusCode::NOT_FOUND, "Not Found").into_response()
 }
 
+// ---------------------------------------------------------------------------
+// ACP HTTP API — /api/acp/*
+// ---------------------------------------------------------------------------
+
+/// Check ACP-specific API token (falls back to web_auth_token if acp_api_token is not set).
+fn require_acp_auth(
+    headers: &HeaderMap,
+    state: &WebState,
+) -> Result<(), (StatusCode, String)> {
+    let token = state
+        .app_state
+        .acp_manager
+        .config
+        .acp_api_token
+        .as_deref()
+        .or(state.auth_token.as_deref());
+    require_auth(headers, token)
+}
+
+async fn api_acp_health(
+    headers: HeaderMap,
+    State(state): State<WebState>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    require_acp_auth(&headers, &state)?;
+    let sessions = state.app_state.acp_manager.list_sessions().await;
+    let agents = state.app_state.acp_manager.available_agents();
+    Ok(Json(json!({
+        "ok": true,
+        "agents_configured": agents.len(),
+        "agents": agents,
+        "active_sessions": sessions.len(),
+    })))
+}
+
+async fn api_acp_agents(
+    headers: HeaderMap,
+    State(state): State<WebState>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    require_acp_auth(&headers, &state)?;
+    let agents: Vec<serde_json::Value> = state
+        .app_state
+        .acp_manager
+        .available_agents()
+        .into_iter()
+        .map(|name| {
+            let cfg = state.app_state.acp_manager.agent_config(&name);
+            json!({
+                "name": name,
+                "mode": cfg.map(|c| c.mode.as_str()).unwrap_or("acp"),
+                "launch": cfg.map(|c| c.launch.as_str()).unwrap_or("unknown"),
+                "command": cfg.map(|c| c.command.as_str()).unwrap_or("unknown"),
+                "workspace": cfg.and_then(|c| c.workspace.as_deref()),
+            })
+        })
+        .collect();
+    Ok(Json(json!({ "ok": true, "agents": agents })))
+}
+
+async fn api_acp_list_sessions(
+    headers: HeaderMap,
+    State(state): State<WebState>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    require_acp_auth(&headers, &state)?;
+    let sessions: Vec<serde_json::Value> = state
+        .app_state
+        .acp_manager
+        .list_sessions()
+        .await
+        .into_iter()
+        .map(|s| {
+            json!({
+                "session_id": s.session_id,
+                "agent_id": s.agent_id,
+                "workspace": s.workspace,
+                "status": format!("{:?}", s.status),
+                "created_at": s.created_at,
+                "idle_secs": s.idle_secs,
+            })
+        })
+        .collect();
+    Ok(Json(json!({ "ok": true, "sessions": sessions })))
+}
+
+#[derive(Deserialize)]
+struct AcpCreateSessionBody {
+    agent_id: String,
+    workspace: Option<String>,
+    auto_approve: Option<bool>,
+}
+
+async fn api_acp_create_session(
+    headers: HeaderMap,
+    State(state): State<WebState>,
+    Json(body): Json<AcpCreateSessionBody>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    require_acp_auth(&headers, &state)?;
+    match state
+        .app_state
+        .acp_manager
+        .new_session(
+            &body.agent_id,
+            body.workspace.as_deref(),
+            body.auto_approve,
+        )
+        .await
+    {
+        Ok(info) => Ok(Json(json!({
+            "ok": true,
+            "session_id": info.session_id,
+            "agent_id": info.agent_id,
+            "workspace": info.workspace,
+        }))),
+        Err(e) => Err((StatusCode::BAD_REQUEST, e)),
+    }
+}
+
+#[derive(Deserialize)]
+struct AcpPromptBody {
+    message: String,
+    timeout_secs: Option<u64>,
+}
+
+async fn api_acp_prompt(
+    headers: HeaderMap,
+    State(state): State<WebState>,
+    Path(session_id): Path<String>,
+    Json(body): Json<AcpPromptBody>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    require_acp_auth(&headers, &state)?;
+    match state
+        .app_state
+        .acp_manager
+        .prompt(&session_id, &body.message, body.timeout_secs, None)
+        .await
+    {
+        Ok(result) => Ok(Json(json!({
+            "ok": true,
+            "completed": result.completed,
+            "messages": result.messages,
+            "tool_calls": result.tool_calls.iter().map(|tc| json!({
+                "name": tc.name,
+                "input": tc.input,
+            })).collect::<Vec<_>>(),
+            "files_changed": result.files_changed,
+            "duration_ms": result.duration_ms,
+            "context_reset": result.context_reset,
+        }))),
+        Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, e)),
+    }
+}
+
+async fn api_acp_prompt_stream(
+    headers: HeaderMap,
+    State(state): State<WebState>,
+    Path(session_id): Path<String>,
+    Json(body): Json<AcpPromptBody>,
+) -> Result<Sse<impl futures_util::Stream<Item = Result<Event, std::convert::Infallible>>>, (StatusCode, String)>
+{
+    require_acp_auth(&headers, &state)?;
+
+    let (progress_tx, mut progress_rx) =
+        tokio::sync::mpsc::unbounded_channel::<crate::acp::AcpProgressEvent>();
+
+    let manager = state.app_state.acp_manager.clone();
+    let sid = session_id.clone();
+    let msg = body.message.clone();
+    let timeout = body.timeout_secs;
+
+    // Spawn the prompt in background so we can stream events
+    let (result_tx, result_rx) = tokio::sync::oneshot::channel();
+    tokio::spawn(async move {
+        let r = manager.prompt(&sid, &msg, timeout, Some(&progress_tx)).await;
+        drop(progress_tx); // signal end of events
+        let _ = result_tx.send(r);
+    });
+
+    let stream = async_stream::stream! {
+        use crate::acp::AcpProgressEvent;
+
+        // Stream progress events
+        while let Some(event) = progress_rx.recv().await {
+            let data = match &event {
+                AcpProgressEvent::ToolStart { name } => json!({
+                    "type": "tool_start", "name": name
+                }),
+                AcpProgressEvent::ToolComplete { name, status } => json!({
+                    "type": "tool_complete", "name": name, "status": status
+                }),
+                AcpProgressEvent::Thinking { text } => json!({
+                    "type": "thinking", "text": text
+                }),
+            };
+            yield Ok(Event::default().event("progress").data(data.to_string()));
+        }
+
+        // Stream final result
+        match result_rx.await {
+            Ok(Ok(result)) => {
+                let data = json!({
+                    "ok": true,
+                    "completed": result.completed,
+                    "messages": result.messages,
+                    "tool_calls": result.tool_calls.iter().map(|tc| json!({
+                        "name": tc.name,
+                        "input": tc.input,
+                    })).collect::<Vec<serde_json::Value>>(),
+                    "files_changed": result.files_changed,
+                    "duration_ms": result.duration_ms,
+                    "context_reset": result.context_reset,
+                });
+                yield Ok(Event::default().event("result").data(data.to_string()));
+            }
+            Ok(Err(e)) => {
+                yield Ok(Event::default().event("error").data(json!({"error": e}).to_string()));
+            }
+            Err(_) => {
+                yield Ok(Event::default().event("error").data(json!({"error": "prompt task cancelled"}).to_string()));
+            }
+        }
+
+        yield Ok(Event::default().event("done").data("{}".to_string()));
+    };
+
+    Ok(Sse::new(stream).keep_alive(KeepAlive::default()))
+}
+
+async fn api_acp_end_session(
+    headers: HeaderMap,
+    State(state): State<WebState>,
+    Path(session_id): Path<String>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    require_acp_auth(&headers, &state)?;
+    match state.app_state.acp_manager.end_session(&session_id).await {
+        Ok(()) => Ok(Json(json!({ "ok": true }))),
+        Err(e) => Err((StatusCode::NOT_FOUND, e)),
+    }
+}
+
+#[derive(Deserialize)]
+struct AcpSubmitJobBody {
+    session_id: String,
+    message: String,
+    timeout_secs: Option<u64>,
+}
+
+async fn api_acp_submit_job(
+    headers: HeaderMap,
+    State(state): State<WebState>,
+    Json(body): Json<AcpSubmitJobBody>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    require_acp_auth(&headers, &state)?;
+    match state
+        .app_state
+        .acp_manager
+        .submit_job(&body.session_id, &body.message, body.timeout_secs, None, None)
+        .await
+    {
+        Ok(job_id) => Ok(Json(json!({
+            "ok": true,
+            "job_id": job_id,
+            "status": "submitted",
+        }))),
+        Err(e) => Err((StatusCode::BAD_REQUEST, e)),
+    }
+}
+
+async fn api_acp_job_status(
+    headers: HeaderMap,
+    State(state): State<WebState>,
+    Path(job_id): Path<String>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    require_acp_auth(&headers, &state)?;
+    match state.app_state.acp_manager.job_status(&job_id).await {
+        Ok(summary) => Ok(Json(json!({
+            "ok": true,
+            "job": {
+                "id": summary.id,
+                "session_id": summary.session_id,
+                "agent_id": summary.agent_id,
+                "status": format!("{:?}", summary.status),
+                "created_at": summary.created_at,
+                "completed_at": summary.completed_at,
+                "duration_ms": summary.duration_ms,
+                "error": summary.error,
+            }
+        }))),
+        Err(e) => Err((StatusCode::NOT_FOUND, e)),
+    }
+}
+
 fn build_router(web_state: WebState) -> Router {
     Router::new()
         .route("/", get(index))
@@ -1580,6 +1870,15 @@ fn build_router(web_state: WebState) -> Router {
         .route("/api/run_status", get(api_run_status))
         .route("/api/reset", post(api_reset))
         .route("/api/delete_session", post(api_delete_session))
+        // ACP HTTP API
+        .route("/api/acp/health", get(api_acp_health))
+        .route("/api/acp/agents", get(api_acp_agents))
+        .route("/api/acp/sessions", get(api_acp_list_sessions).post(api_acp_create_session))
+        .route("/api/acp/sessions/:id/prompt", post(api_acp_prompt))
+        .route("/api/acp/sessions/:id/prompt/stream", post(api_acp_prompt_stream))
+        .route("/api/acp/sessions/:id", delete(api_acp_end_session))
+        .route("/api/acp/jobs", post(api_acp_submit_job))
+        .route("/api/acp/jobs/:id", get(api_acp_job_status))
         .with_state(web_state)
 }
 
@@ -2216,5 +2515,175 @@ mod tests {
 
         assert_eq!(routing.map(|r| r.channel_name), Some("web".to_string()));
         assert_eq!(external.as_deref(), Some("scoped-main"));
+    }
+
+    // -----------------------------------------------------------------------
+    // ACP API tests
+    // -----------------------------------------------------------------------
+
+    #[tokio::test]
+    async fn test_acp_health_no_auth() {
+        let web_state = test_web_state(Box::new(DummyLlm), None, WebLimits::default());
+        let app = build_router(web_state);
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/acp/health")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body: serde_json::Value =
+            serde_json::from_slice(&axum::body::to_bytes(resp.into_body(), 1 << 16).await.unwrap())
+                .unwrap();
+        assert_eq!(body["ok"], true);
+        assert!(body["agents_configured"].is_number());
+    }
+
+    #[tokio::test]
+    async fn test_acp_health_requires_acp_token() {
+        let web_state = test_web_state(Box::new(DummyLlm), Some("webtoken".into()), WebLimits::default());
+        let app = build_router(web_state);
+
+        // Without token → 401
+        let resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/api/acp/health")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+
+        // With correct web_auth_token → 200 (fallback)
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/acp/health")
+                    .header("Authorization", "Bearer webtoken")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_acp_agents_lists_empty() {
+        let web_state = test_web_state(Box::new(DummyLlm), None, WebLimits::default());
+        let app = build_router(web_state);
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/acp/agents")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body: serde_json::Value =
+            serde_json::from_slice(&axum::body::to_bytes(resp.into_body(), 1 << 16).await.unwrap())
+                .unwrap();
+        assert_eq!(body["ok"], true);
+        assert!(body["agents"].as_array().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_acp_sessions_empty() {
+        let web_state = test_web_state(Box::new(DummyLlm), None, WebLimits::default());
+        let app = build_router(web_state);
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/acp/sessions")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body: serde_json::Value =
+            serde_json::from_slice(&axum::body::to_bytes(resp.into_body(), 1 << 16).await.unwrap())
+                .unwrap();
+        assert_eq!(body["ok"], true);
+        assert!(body["sessions"].as_array().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_acp_create_session_unknown_agent() {
+        let web_state = test_web_state(Box::new(DummyLlm), None, WebLimits::default());
+        let app = build_router(web_state);
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/acp/sessions")
+                    .header("content-type", "application/json")
+                    .body(Body::from(
+                        json!({"agent_id": "nonexistent"}).to_string(),
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn test_acp_end_session_not_found() {
+        let web_state = test_web_state(Box::new(DummyLlm), None, WebLimits::default());
+        let app = build_router(web_state);
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .method("DELETE")
+                    .uri("/api/acp/sessions/nonexistent")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn test_acp_job_status_not_found() {
+        let web_state = test_web_state(Box::new(DummyLlm), None, WebLimits::default());
+        let app = build_router(web_state);
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/acp/jobs/nonexistent")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn test_acp_prompt_session_not_found() {
+        let web_state = test_web_state(Box::new(DummyLlm), None, WebLimits::default());
+        let app = build_router(web_state);
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/acp/sessions/nonexistent/prompt")
+                    .header("content-type", "application/json")
+                    .body(Body::from(json!({"message": "hello"}).to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::INTERNAL_SERVER_ERROR);
     }
 }
