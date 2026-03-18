@@ -112,6 +112,7 @@ struct McpHttpInner {
     client: reqwest::Client,
     endpoint: String,
     headers: HashMap<String, String>,
+    session_id: Option<String>,
     next_id: u64,
 }
 
@@ -154,6 +155,25 @@ fn spawn_stdio_inner(spec: &McpStdioSpawnSpec, server_name: &str) -> Result<McpS
         _child: child,
         next_id: 1,
     })
+}
+
+/// Extract JSON from an SSE response body.
+/// Scans `data:` lines and returns the last successfully parsed JSON value.
+fn parse_sse_json(body: &str) -> Result<serde_json::Value, String> {
+    let mut last_json: Option<serde_json::Value> = None;
+    for line in body.lines() {
+        let trimmed = line.trim();
+        if let Some(data) = trimmed.strip_prefix("data:") {
+            let data = data.trim();
+            if data.is_empty() {
+                continue;
+            }
+            if let Ok(val) = serde_json::from_str::<serde_json::Value>(data) {
+                last_json = Some(val);
+            }
+        }
+    }
+    last_json.ok_or_else(|| "No JSON found in SSE response".to_string())
 }
 
 impl McpServer {
@@ -208,6 +228,7 @@ impl McpServer {
                         client,
                         endpoint: config.endpoint.clone(),
                         headers: config.headers.clone(),
+                        session_id: None,
                         next_id: 1,
                     }))),
                     None,
@@ -532,7 +553,14 @@ impl McpServer {
             params,
         };
 
-        let mut req = inner.client.post(&inner.endpoint).json(&request);
+        let mut req = inner
+            .client
+            .post(&inner.endpoint)
+            .json(&request)
+            .header("Accept", "application/json, text/event-stream");
+        if let Some(sid) = &inner.session_id {
+            req = req.header("Mcp-Session-Id", sid);
+        }
         for (k, v) in &inner.headers {
             req = req.header(k, v);
         }
@@ -542,27 +570,53 @@ impl McpServer {
             .await
             .map_err(|e| format!("HTTP request failed: {e}"))?;
         let status = response.status();
-        let body: serde_json::Value = response
-            .json()
-            .await
-            .map_err(|e| format!("Failed to parse HTTP MCP response: {e}"))?;
 
-        if !status.is_success() {
-            return Err(format!("HTTP MCP request failed with {status}: {body}"));
+        // Capture session ID from response header
+        if let Some(sid) = response
+            .headers()
+            .get("mcp-session-id")
+            .and_then(|v| v.to_str().ok())
+        {
+            inner.session_id = Some(sid.to_string());
         }
 
-        if let Ok(parsed) = serde_json::from_value::<JsonRpcResponse>(body.clone()) {
+        if !status.is_success() {
+            let body_text = response.text().await.unwrap_or_default();
+            return Err(format!("HTTP MCP request failed with {status}: {body_text}"));
+        }
+
+        let content_type = response
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("")
+            .to_string();
+
+        let body_json = if content_type.contains("text/event-stream") {
+            let body_text = response
+                .text()
+                .await
+                .map_err(|e| format!("Failed to read SSE response body: {e}"))?;
+            parse_sse_json(&body_text)?
+        } else {
+            response
+                .json()
+                .await
+                .map_err(|e| format!("Failed to parse HTTP MCP response: {e}"))?
+        };
+
+        if let Ok(parsed) = serde_json::from_value::<JsonRpcResponse>(body_json.clone()) {
             if let Some(err) = parsed.error {
                 return Err(format!("MCP error ({}): {}", err.code, err.message));
             }
             return Ok(parsed.result.unwrap_or(serde_json::Value::Null));
         }
 
-        if let Some(result) = body.get("result") {
+        if let Some(result) = body_json.get("result") {
             return Ok(result.clone());
         }
 
-        Ok(body)
+        Ok(body_json)
     }
 
     async fn send_request(
@@ -592,7 +646,14 @@ impl McpServer {
                     params,
                 };
 
-                let mut req = inner.client.post(&inner.endpoint).json(&request);
+                let mut req = inner
+                    .client
+                    .post(&inner.endpoint)
+                    .json(&request)
+                    .header("Accept", "application/json, text/event-stream");
+                if let Some(sid) = &inner.session_id {
+                    req = req.header("Mcp-Session-Id", sid);
+                }
                 for (k, v) in &inner.headers {
                     req = req.header(k, v);
                 }
@@ -918,5 +979,27 @@ mod tests {
         assert_eq!(remote.endpoint, "http://127.0.0.1:8080/mcp");
         assert_eq!(remote.max_retries, Some(3));
         assert_eq!(remote.health_interval_secs, Some(15));
+    }
+
+    #[test]
+    fn test_parse_sse_json() {
+        let body = "event: message\ndata: {\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"ok\":true}}\n\n";
+        let val = parse_sse_json(body).unwrap();
+        assert_eq!(val["id"], 1);
+        assert_eq!(val["result"]["ok"], true);
+    }
+
+    #[test]
+    fn test_parse_sse_json_multiple_data_lines() {
+        let body = "event: message\ndata: {\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"first\":true}}\n\nevent: message\ndata: {\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"second\":true}}\n\n";
+        let val = parse_sse_json(body).unwrap();
+        // Returns the last JSON message
+        assert_eq!(val["result"]["second"], true);
+    }
+
+    #[test]
+    fn test_parse_sse_json_no_data() {
+        let body = "event: ping\n\n";
+        assert!(parse_sse_json(body).is_err());
     }
 }
