@@ -196,7 +196,7 @@ fn test_combined_registry_has_all_tools() {
     }
 
     let total_count = registry.definitions().len();
-    assert_eq!(total_count, core_count + 6, "Should have 6 ACP tools added");
+    assert_eq!(total_count, core_count + 7, "Should have 7 ACP tools added");
 
     // Verify all ACP tool names are present
     let all_names: Vec<String> = registry

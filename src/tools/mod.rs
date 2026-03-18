@@ -97,7 +97,7 @@ impl ToolRisk {
 
 pub fn tool_risk(name: &str) -> ToolRisk {
     match name {
-        "bash" | "acp_prompt" | "acp_submit_job" => ToolRisk::High,
+        "bash" | "acp_prompt" | "acp_submit_job" | "acp_coding" => ToolRisk::High,
         "write_file"
         | "edit_file"
         | "write_memory"

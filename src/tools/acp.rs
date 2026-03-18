@@ -1,44 +1,286 @@
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::Arc;
-
-use async_trait::async_trait;
-use serde_json::json;
 
 use crate::acp::{AcpManager, JobCompletionCallback};
 use crate::llm_types::ToolDefinition;
+use async_trait::async_trait;
+use serde_json::json;
 
 use super::{auth_context_from_input, schema_object, Tool, ToolResult};
 
+/// Callback type for sending a notification message to a chat.
+pub type NotifyFn =
+    Arc<dyn Fn(i64, String) -> Pin<Box<dyn Future<Output = ()> + Send>> + Send + Sync>;
+
 /// Build all ACP tools sharing a single AcpManager.
 pub fn make_acp_tools(manager: Arc<AcpManager>) -> Vec<Box<dyn Tool>> {
-    make_acp_tools_with_callback(manager, None)
+    make_acp_tools_with_callback(manager, None, None)
 }
 
-/// Build all ACP tools with an optional job completion callback.
+/// Build all ACP tools with optional job completion and notification callbacks.
 pub fn make_acp_tools_with_callback(
     manager: Arc<AcpManager>,
     on_job_complete: Option<JobCompletionCallback>,
+    notify: Option<NotifyFn>,
 ) -> Vec<Box<dyn Tool>> {
-    vec![
-        Box::new(AcpNewSessionTool::new(manager.clone())),
+    let tools: Vec<Box<dyn Tool>> = vec![
+        Box::new(AcpCodingTool::new(
+            manager.clone(),
+            on_job_complete.clone(),
+            notify.clone(),
+        )),
+        Box::new(AcpNewSessionTool::new(manager.clone(), notify)),
         Box::new(AcpPromptTool::new(manager.clone())),
         Box::new(AcpEndSessionTool::new(manager.clone())),
         Box::new(AcpListSessionsTool::new(manager.clone())),
         Box::new(AcpSubmitJobTool::new(manager.clone(), on_job_complete)),
         Box::new(AcpJobStatusTool::new(manager)),
-    ]
+    ];
+    tools
 }
 
 // ---------------------------------------------------------------------------
-// acp_new_session
+// acp_coding — high-level unified tool with auto session management
+// ---------------------------------------------------------------------------
+
+struct AcpCodingTool {
+    manager: Arc<AcpManager>,
+    on_complete: Option<JobCompletionCallback>,
+    notify: Option<NotifyFn>,
+}
+
+impl AcpCodingTool {
+    fn new(
+        manager: Arc<AcpManager>,
+        on_complete: Option<JobCompletionCallback>,
+        notify: Option<NotifyFn>,
+    ) -> Self {
+        Self {
+            manager,
+            on_complete,
+            notify,
+        }
+    }
+
+    async fn send_notify(&self, chat_id: i64, text: &str) {
+        if let Some(ref notify) = self.notify {
+            notify(chat_id, text.to_string()).await;
+        }
+    }
+}
+
+#[async_trait]
+impl Tool for AcpCodingTool {
+    fn name(&self) -> &str {
+        "acp_coding"
+    }
+
+    fn definition(&self) -> ToolDefinition {
+        ToolDefinition {
+            name: "acp_coding".into(),
+            description: "Delegate a coding task to an external AI coding agent (e.g. Claude Code). \
+                Automatically manages sessions: reuses existing session for the chat or creates a new one. \
+                Sends immediate notification to the user, then executes the task. \
+                For quick tasks the result is returned directly. \
+                Set async=true for long-running tasks to get a job_id and receive results via push notification."
+                .into(),
+            input_schema: schema_object(
+                json!({
+                    "message": {
+                        "type": "string",
+                        "description": "The coding task or instruction to send to the agent"
+                    },
+                    "agent": {
+                        "type": "string",
+                        "description": "Agent name (default: \"claude\")"
+                    },
+                    "workspace": {
+                        "type": "string",
+                        "description": "Working directory for the agent (default: agent's configured workspace)"
+                    },
+                    "async": {
+                        "type": "boolean",
+                        "description": "If true, submit as async job and return job_id immediately. Results are pushed to chat when done. Use for tasks that may take > 2 minutes."
+                    },
+                    "timeout_secs": {
+                        "type": "integer",
+                        "description": "Max seconds to wait (sync mode only). Default: 300"
+                    }
+                }),
+                &["message"],
+            ),
+        }
+    }
+
+    async fn execute(&self, input: serde_json::Value) -> ToolResult {
+        let message = match input.get("message").and_then(|v| v.as_str()) {
+            Some(m) => m,
+            None => return ToolResult::error("Missing required parameter: message".into()),
+        };
+
+        let agent = input
+            .get("agent")
+            .and_then(|v| v.as_str())
+            .unwrap_or("claude");
+        let workspace = input.get("workspace").and_then(|v| v.as_str());
+        let is_async = input
+            .get("async")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        let timeout_secs = input.get("timeout_secs").and_then(|v| v.as_u64());
+
+        let chat_id = auth_context_from_input(&input).map(|ctx| ctx.caller_chat_id);
+
+        // Step 1: Try to reuse existing session for this chat
+        let session_id = if let Some(cid) = chat_id {
+            if let Some(existing) = self.manager.chat_session(cid).await {
+                // Verify session is still alive
+                let sessions = self.manager.list_sessions().await;
+                if sessions.iter().any(|s| s.session_id == existing) {
+                    Some(existing)
+                } else {
+                    // Stale binding, clear it
+                    self.manager.unbind_chat(cid).await;
+                    None
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        // Step 2: Create new session if needed
+        let session_id = match session_id {
+            Some(sid) => {
+                if let Some(cid) = chat_id {
+                    self.send_notify(
+                        cid,
+                        &format!("♻️ Reusing coding agent session ({agent}), executing task..."),
+                    )
+                    .await;
+                }
+                sid
+            }
+            None => {
+                if let Some(cid) = chat_id {
+                    self.send_notify(
+                        cid,
+                        &format!("🚀 Starting {agent} coding agent, please wait..."),
+                    )
+                    .await;
+                }
+
+                match self.manager.new_session(agent, workspace, None).await {
+                    Ok(info) => {
+                        if let Some(cid) = chat_id {
+                            self.manager.bind_chat(cid, &info.session_id).await;
+                            self.send_notify(
+                                cid,
+                                &format!(
+                                    "✅ {agent} session started ({})\nWorkspace: {}\nExecuting task...",
+                                    &info.session_id[..8],
+                                    info.workspace
+                                ),
+                            )
+                            .await;
+                        }
+                        info.session_id
+                    }
+                    Err(e) => {
+                        return ToolResult::error(format!("Failed to start coding agent: {e}"))
+                            .with_error_type("acp_error");
+                    }
+                }
+            }
+        };
+
+        // Step 3: Execute task
+        if is_async {
+            // Async mode — submit job and return immediately
+            match self
+                .manager
+                .submit_job(
+                    &session_id,
+                    message,
+                    timeout_secs,
+                    chat_id,
+                    self.on_complete.clone(),
+                )
+                .await
+            {
+                Ok(job_id) => ToolResult::success(
+                    json!({
+                        "mode": "async",
+                        "job_id": job_id,
+                        "session_id": session_id,
+                        "agent": agent,
+                        "status": "submitted",
+                        "message": "Task submitted. Results will be pushed to the chat when complete."
+                    })
+                    .to_string(),
+                ),
+                Err(e) => ToolResult::error(format!("Failed to submit async job: {e}"))
+                    .with_error_type("acp_error"),
+            }
+        } else {
+            // Sync mode — wait for result
+            match self
+                .manager
+                .prompt(&session_id, message, timeout_secs, None)
+                .await
+            {
+                Ok(result) => {
+                    let tool_call_summaries: Vec<serde_json::Value> = result
+                        .tool_calls
+                        .iter()
+                        .map(|tc| {
+                            json!({
+                                "tool": tc.name,
+                                "input": tc.input,
+                            })
+                        })
+                        .collect();
+
+                    let mut output = json!({
+                        "mode": "sync",
+                        "session_id": session_id,
+                        "agent": agent,
+                        "completed": result.completed,
+                        "messages": result.messages,
+                        "tool_calls": tool_call_summaries,
+                        "files_changed": result.files_changed,
+                        "duration_ms": result.duration_ms,
+                    });
+                    if result.context_reset {
+                        output["context_reset"] = json!(true);
+                        output["context_reset_notice"] = json!(
+                            "Agent process crashed and was restarted. Previous context was lost."
+                        );
+                    }
+
+                    ToolResult::success(output.to_string())
+                }
+                Err(e) => ToolResult::error(format!("Coding agent error: {e}"))
+                    .with_error_type("acp_error"),
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// acp_new_session (low-level — prefer acp_coding for most use cases)
 // ---------------------------------------------------------------------------
 
 struct AcpNewSessionTool {
     manager: Arc<AcpManager>,
+    notify: Option<NotifyFn>,
 }
 
 impl AcpNewSessionTool {
-    fn new(manager: Arc<AcpManager>) -> Self {
-        Self { manager }
+    fn new(manager: Arc<AcpManager>, notify: Option<NotifyFn>) -> Self {
+        Self { manager, notify }
     }
 }
 
@@ -51,9 +293,9 @@ impl Tool for AcpNewSessionTool {
     fn definition(&self) -> ToolDefinition {
         ToolDefinition {
             name: "acp_new_session".into(),
-            description: "Create a new ACP agent session. Spawns an external Coding Agent \
-                (e.g. Claude Code) as a subprocess. The agent can autonomously read/write files, \
-                run commands, and complete coding tasks in the given workspace. \
+            description: "Low-level: create a new ACP agent session. \
+                PREFER acp_coding instead — it handles session management automatically. \
+                Only use this if you need explicit control over session lifecycle. \
                 Returns a session_id to use with acp_prompt and acp_end_session."
                 .into(),
             input_schema: schema_object(
@@ -84,21 +326,46 @@ impl Tool for AcpNewSessionTool {
 
         let workspace = input.get("workspace").and_then(|v| v.as_str());
         let auto_approve = input.get("auto_approve").and_then(|v| v.as_bool());
+        let chat_id = auth_context_from_input(&input).map(|ctx| ctx.caller_chat_id);
+
+        // Notify user that session is starting
+        if let (Some(cid), Some(ref notify)) = (chat_id, &self.notify) {
+            notify(
+                cid,
+                format!("🚀 Starting {agent} coding agent, please wait..."),
+            )
+            .await;
+        }
 
         match self
             .manager
             .new_session(agent, workspace, auto_approve)
             .await
         {
-            Ok(info) => ToolResult::success(
-                json!({
-                    "session_id": info.session_id,
-                    "agent": info.agent_id,
-                    "workspace": info.workspace,
-                    "status": "active"
-                })
-                .to_string(),
-            ),
+            Ok(info) => {
+                // Notify user session is ready
+                if let (Some(cid), Some(ref notify)) = (chat_id, &self.notify) {
+                    notify(
+                        cid,
+                        format!(
+                            "✅ {agent} session started ({})\nWorkspace: {}",
+                            &info.session_id[..8.min(info.session_id.len())],
+                            info.workspace
+                        ),
+                    )
+                    .await;
+                }
+
+                ToolResult::success(
+                    json!({
+                        "session_id": info.session_id,
+                        "agent": info.agent_id,
+                        "workspace": info.workspace,
+                        "status": "active"
+                    })
+                    .to_string(),
+                )
+            }
             Err(e) => ToolResult::error(format!("Failed to create ACP session: {e}"))
                 .with_error_type("acp_error"),
         }
@@ -128,10 +395,9 @@ impl Tool for AcpPromptTool {
     fn definition(&self) -> ToolDefinition {
         ToolDefinition {
             name: "acp_prompt".into(),
-            description: "Send a coding task to an active ACP agent session and wait for \
-                completion. The agent will autonomously execute the task (read/write files, \
-                run commands, etc.) and return the results including output messages, \
-                tool calls made, and files changed."
+            description: "Low-level: send a prompt to an existing ACP session. \
+                PREFER acp_coding instead — it handles session creation and notifications automatically. \
+                Only use this for multi-turn interactions on an already-open session."
                 .into(),
             input_schema: schema_object(
                 json!({
@@ -497,12 +763,12 @@ mod tests {
         let manager = test_manager();
         let tools = make_acp_tools(manager);
         let names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
-        assert_eq!(names.len(), 6);
+        assert_eq!(names.len(), 7);
 
         let mut sorted = names.clone();
         sorted.sort();
         sorted.dedup();
-        assert_eq!(sorted.len(), 6, "Tool names must be unique");
+        assert_eq!(sorted.len(), 7, "Tool names must be unique");
     }
 
     #[test]
@@ -528,6 +794,7 @@ mod tests {
         let manager = test_manager();
         let tools = make_acp_tools(manager);
         let expected = vec![
+            "acp_coding",
             "acp_new_session",
             "acp_prompt",
             "acp_end_session",
@@ -542,7 +809,7 @@ mod tests {
     #[tokio::test]
     async fn test_new_session_missing_agent_param() {
         let manager = test_manager();
-        let tool = AcpNewSessionTool::new(manager);
+        let tool = AcpNewSessionTool::new(manager, None);
         let result = tool.execute(json!({})).await;
         assert!(result.is_error);
         assert!(result.content.contains("Missing"));
@@ -551,7 +818,7 @@ mod tests {
     #[tokio::test]
     async fn test_new_session_unknown_agent() {
         let manager = test_manager();
-        let tool = AcpNewSessionTool::new(manager);
+        let tool = AcpNewSessionTool::new(manager, None);
         let result = tool.execute(json!({"agent": "nonexistent"})).await;
         assert!(result.is_error);
         assert!(result.content.contains("not configured"));
@@ -689,7 +956,7 @@ mod tests {
     #[test]
     fn test_acp_new_session_schema_details() {
         let manager = test_manager();
-        let tool = AcpNewSessionTool::new(manager);
+        let tool = AcpNewSessionTool::new(manager, None);
         let def = tool.definition();
 
         let props = def.input_schema["properties"].as_object().unwrap();
@@ -761,6 +1028,7 @@ mod tests {
         use crate::tools::tool_risk;
         use crate::tools::ToolRisk;
 
+        assert_eq!(tool_risk("acp_coding"), ToolRisk::High);
         assert_eq!(tool_risk("acp_prompt"), ToolRisk::High);
         assert_eq!(tool_risk("acp_submit_job"), ToolRisk::High);
         assert_eq!(tool_risk("acp_new_session"), ToolRisk::Medium);

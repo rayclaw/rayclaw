@@ -124,8 +124,34 @@ pub async fn create_app_state(
         None
     };
 
+    // Build notification callback for ACP tools (send status messages to chats).
+    let notify_fn: Option<crate::tools::acp::NotifyFn> = if !use_sdk_tools {
+        let n_registry = channel_registry.clone();
+        let n_db = db.clone();
+        let n_bot = config.bot_username.clone();
+        Some(std::sync::Arc::new(move |chat_id: i64, text: String| {
+            let reg = n_registry.clone();
+            let db = n_db.clone();
+            let bot = n_bot.clone();
+            Box::pin(async move {
+                if let Err(e) =
+                    crate::channel::deliver_and_store_bot_message(&reg, db, &bot, chat_id, &text)
+                        .await
+                {
+                    tracing::warn!("ACP notify: failed to deliver to chat {chat_id}: {e}");
+                }
+            })
+        }))
+    } else {
+        None
+    };
+
     // Register ACP tools so the model can directly create/prompt/end coding agent sessions.
-    for tool in crate::tools::acp::make_acp_tools_with_callback(acp_manager.clone(), job_callback) {
+    for tool in crate::tools::acp::make_acp_tools_with_callback(
+        acp_manager.clone(),
+        job_callback,
+        notify_fn,
+    ) {
         tools.add_tool(tool);
     }
 
