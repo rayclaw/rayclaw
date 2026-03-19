@@ -100,6 +100,9 @@ fn default_soul_path() -> Option<String> {
 fn default_skip_tool_approval() -> bool {
     false
 }
+fn default_prompt_cache_ttl() -> String {
+    "none".into()
+}
 fn is_local_web_host(host: &str) -> bool {
     let h = host.trim().to_ascii_lowercase();
     h == "127.0.0.1" || h == "localhost" || h == "::1"
@@ -132,6 +135,8 @@ pub struct Config {
     pub llm_base_url: Option<String>,
     #[serde(default = "default_max_tokens")]
     pub max_tokens: u32,
+    #[serde(default = "default_prompt_cache_ttl")]
+    pub prompt_cache_ttl: String,
     #[serde(default = "default_max_tool_iterations")]
     pub max_tool_iterations: usize,
     #[serde(default = "default_max_history_messages")]
@@ -600,6 +605,7 @@ mod tests {
             model: "claude-sonnet-4-5-20250929".into(),
             llm_base_url: None,
             max_tokens: 8192,
+            prompt_cache_ttl: "none".into(),
             max_tool_iterations: 100,
             max_history_messages: 50,
             max_document_size_mb: 100,
@@ -1132,5 +1138,26 @@ discord_allowed_channels: [111, 222]
         let content = std::fs::read_to_string(&path).unwrap();
         assert!(content.contains("telegram_bot_token"));
         std::fs::remove_file(path).ok();
+    }
+
+    #[test]
+    fn test_prompt_cache_ttl_default() {
+        let yaml = "telegram_bot_token: tok\nbot_username: bot\napi_key: key\n";
+        let config: Config = serde_yaml::from_str(yaml).unwrap();
+        assert_eq!(config.prompt_cache_ttl, "none");
+    }
+
+    #[test]
+    fn test_prompt_cache_ttl_from_yaml() {
+        let yaml = "telegram_bot_token: tok\nbot_username: bot\napi_key: key\nprompt_cache_ttl: \"1h\"\n";
+        let config: Config = serde_yaml::from_str(yaml).unwrap();
+        assert_eq!(config.prompt_cache_ttl, "1h");
+    }
+
+    #[test]
+    fn test_prompt_cache_ttl_from_yaml_5m() {
+        let yaml = "telegram_bot_token: tok\nbot_username: bot\napi_key: key\nprompt_cache_ttl: \"5m\"\n";
+        let config: Config = serde_yaml::from_str(yaml).unwrap();
+        assert_eq!(config.prompt_cache_ttl, "5m");
     }
 }

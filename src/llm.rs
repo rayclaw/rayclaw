@@ -16,7 +16,7 @@ use crate::config::Config;
 use crate::config::WorkingDirIsolation;
 use crate::error::RayClawError;
 use crate::llm_types::{
-    ContentBlock, ImageSource, Message, MessageContent, MessagesRequest, MessagesResponse,
+    ContentBlock, ImageSource, Message, MessageContent, MessagesResponse,
     ResponseContentBlock, ToolDefinition, Usage,
 };
 
@@ -249,6 +249,7 @@ pub struct AnthropicProvider {
     model: String,
     max_tokens: u32,
     base_url: String,
+    prompt_cache_ttl: String,
 }
 
 impl AnthropicProvider {
@@ -259,24 +260,91 @@ impl AnthropicProvider {
             model: config.model.clone(),
             max_tokens: config.max_tokens,
             base_url: resolve_anthropic_messages_url(config.llm_base_url.as_deref().unwrap_or("")),
+            prompt_cache_ttl: config.prompt_cache_ttl.clone(),
         }
+    }
+
+    /// Build request body with optional prompt caching support.
+    fn build_request_body(
+        &self,
+        system: &str,
+        messages: &[Message],
+        tools: Option<&[ToolDefinition]>,
+        stream: Option<bool>,
+    ) -> serde_json::Value {
+        let use_cache = self.prompt_cache_ttl != "none";
+
+        let mut body = json!({
+            "model": self.model,
+            "max_tokens": self.max_tokens,
+            "messages": messages,
+        });
+
+        // System prompt with cache control on last block
+        if !system.is_empty() {
+            if use_cache {
+                body["system"] = json!([{
+                    "type": "text",
+                    "text": system,
+                    "cache_control": {"type": "ephemeral"}
+                }]);
+            } else {
+                body["system"] = json!(system);
+            }
+        }
+
+        // Tools with cache control on last tool
+        if let Some(tool_defs) = tools {
+            if !tool_defs.is_empty() {
+                if use_cache {
+                    let mut tools_json = serde_json::to_value(tool_defs).unwrap_or_else(|_| json!([]));
+                    if let Some(tools_array) = tools_json.as_array_mut() {
+                        if let Some(last_tool) = tools_array.last_mut() {
+                            if let Some(tool_obj) = last_tool.as_object_mut() {
+                                tool_obj.insert(
+                                    "cache_control".to_string(),
+                                    json!({"type": "ephemeral"})
+                                );
+                            }
+                        }
+                    }
+                    body["tools"] = tools_json;
+                } else {
+                    body["tools"] = json!(tool_defs);
+                }
+            }
+        }
+
+        if let Some(s) = stream {
+            body["stream"] = json!(s);
+        }
+
+        body
     }
 
     async fn send_message_stream_single_pass(
         &self,
-        request: &MessagesRequest,
+        system: &str,
+        messages: &[Message],
+        tools: Option<&[ToolDefinition]>,
         text_tx: Option<&UnboundedSender<String>>,
     ) -> Result<MessagesResponse, RayClawError> {
-        let mut streamed_request = request.clone();
-        streamed_request.stream = Some(true);
+        let body = self.build_request_body(system, messages, tools, Some(true));
 
-        let response = self
+        let mut req = self
             .http
             .post(&self.base_url)
             .header("x-api-key", &self.api_key)
             .header("anthropic-version", "2023-06-01")
-            .header("content-type", "application/json")
-            .json(&streamed_request)
+            .header("content-type", "application/json");
+
+        // Add prompt caching beta header if enabled
+        if self.prompt_cache_ttl != "none" {
+            req = req.header("anthropic-beta", "prompt-caching-2024-07-31");
+        }
+
+        let response = req
+            .json(&body)
             .send()
             .await?;
 
@@ -664,26 +732,31 @@ impl LlmProvider for AnthropicProvider {
     ) -> Result<MessagesResponse, RayClawError> {
         let messages = sanitize_messages(messages);
 
-        let request = MessagesRequest {
-            model: self.model.clone(),
-            max_tokens: self.max_tokens,
-            system: system.to_string(),
-            messages,
-            tools,
-            stream: None,
-        };
+        let body = self.build_request_body(
+            system,
+            &messages,
+            tools.as_deref(),
+            None,
+        );
 
         let mut retries = 0u32;
         let max_retries = 3;
 
         loop {
-            let response = self
+            let mut req = self
                 .http
                 .post(&self.base_url)
                 .header("x-api-key", &self.api_key)
                 .header("anthropic-version", "2023-06-01")
-                .header("content-type", "application/json")
-                .json(&request)
+                .header("content-type", "application/json");
+
+            // Add prompt caching beta header if enabled
+            if self.prompt_cache_ttl != "none" {
+                req = req.header("anthropic-beta", "prompt-caching-2024-07-31");
+            }
+
+            let response = req
+                .json(&body)
                 .send()
                 .await?;
 
@@ -727,17 +800,14 @@ impl LlmProvider for AnthropicProvider {
         text_tx: Option<&UnboundedSender<String>>,
     ) -> Result<MessagesResponse, RayClawError> {
         let messages = sanitize_messages(messages);
-        let request = MessagesRequest {
-            model: self.model.clone(),
-            max_tokens: self.max_tokens,
-            system: system.to_string(),
-            messages,
-            tools,
-            stream: Some(true),
-        };
 
-        self.send_message_stream_single_pass(&request, text_tx)
-            .await
+        self.send_message_stream_single_pass(
+            system,
+            &messages,
+            tools.as_deref(),
+            text_tx,
+        )
+        .await
     }
 }
 
@@ -2034,6 +2104,7 @@ mod tests {
             model: "claude-sonnet-4-5-20250929".into(),
             llm_base_url: None,
             max_tokens: 8192,
+            prompt_cache_ttl: "none".into(),
             max_tool_iterations: 100,
             max_history_messages: 50,
             max_document_size_mb: 100,
@@ -2091,6 +2162,7 @@ mod tests {
             model: "gpt-5.2".into(),
             llm_base_url: None,
             max_tokens: 8192,
+            prompt_cache_ttl: "none".into(),
             max_tool_iterations: 100,
             max_history_messages: 50,
             max_document_size_mb: 100,
@@ -2213,6 +2285,7 @@ mod tests {
             model: "gpt-5.3-codex".into(),
             llm_base_url: Some("http://should-be-ignored".into()),
             max_tokens: 8192,
+            prompt_cache_ttl: "none".into(),
             max_tool_iterations: 100,
             max_history_messages: 50,
             max_document_size_mb: 100,
@@ -2374,6 +2447,7 @@ mod tests {
             model: "gpt-5.3-codex".into(),
             llm_base_url: Some("http://should-be-ignored".into()),
             max_tokens: 8192,
+            prompt_cache_ttl: "none".into(),
             max_tool_iterations: 100,
             max_history_messages: 50,
             max_document_size_mb: 100,
@@ -2737,5 +2811,115 @@ data: [DONE]
             ResponseContentBlock::Text { text } => assert_eq!(text, "From SSE"),
             _ => panic!("Expected text block"),
         }
+    }
+
+    // -----------------------------------------------------------------------
+    // Anthropic prompt caching
+    // -----------------------------------------------------------------------
+
+    fn make_anthropic_provider(cache_ttl: &str) -> AnthropicProvider {
+        AnthropicProvider {
+            http: reqwest::Client::new(),
+            api_key: "test-key".into(),
+            model: "claude-sonnet-4-5-20250929".into(),
+            max_tokens: 4096,
+            base_url: "https://api.anthropic.com/v1/messages".into(),
+            prompt_cache_ttl: cache_ttl.into(),
+        }
+    }
+
+    fn sample_tools() -> Vec<ToolDefinition> {
+        vec![
+            ToolDefinition {
+                name: "bash".into(),
+                description: "Run bash".into(),
+                input_schema: json!({"type": "object", "properties": {"command": {"type": "string"}}}),
+            },
+            ToolDefinition {
+                name: "read_file".into(),
+                description: "Read a file".into(),
+                input_schema: json!({"type": "object", "properties": {"path": {"type": "string"}}}),
+            },
+        ]
+    }
+
+    #[test]
+    fn test_build_request_body_cache_disabled() {
+        let provider = make_anthropic_provider("none");
+        let msgs = vec![Message { role: "user".into(), content: MessageContent::Text("hi".into()) }];
+        let tools = sample_tools();
+        let body = provider.build_request_body("You are helpful.", &msgs, Some(&tools), None);
+
+        // System should be a plain string, no cache_control
+        assert_eq!(body["system"], "You are helpful.");
+
+        // Tools should have no cache_control on any entry
+        let tools_arr = body["tools"].as_array().unwrap();
+        for tool in tools_arr {
+            assert!(tool.get("cache_control").is_none());
+        }
+    }
+
+    #[test]
+    fn test_build_request_body_cache_enabled_5m() {
+        let provider = make_anthropic_provider("5m");
+        let msgs = vec![Message { role: "user".into(), content: MessageContent::Text("hi".into()) }];
+        let tools = sample_tools();
+        let body = provider.build_request_body("You are helpful.", &msgs, Some(&tools), None);
+
+        // System should be an array with cache_control
+        let sys = body["system"].as_array().unwrap();
+        assert_eq!(sys[0]["type"], "text");
+        assert_eq!(sys[0]["cache_control"]["type"], "ephemeral");
+
+        // Last tool should have cache_control
+        let tools_arr = body["tools"].as_array().unwrap();
+        let last = tools_arr.last().unwrap();
+        assert_eq!(last["cache_control"]["type"], "ephemeral");
+    }
+
+    #[test]
+    fn test_build_request_body_cache_enabled_1h() {
+        let provider = make_anthropic_provider("1h");
+        let msgs = vec![Message { role: "user".into(), content: MessageContent::Text("hi".into()) }];
+        let tools = sample_tools();
+        let body = provider.build_request_body("You are helpful.", &msgs, Some(&tools), None);
+
+        // Anthropic always uses ephemeral regardless of TTL value
+        let sys = body["system"].as_array().unwrap();
+        assert_eq!(sys[0]["cache_control"]["type"], "ephemeral");
+
+        let tools_arr = body["tools"].as_array().unwrap();
+        let last = tools_arr.last().unwrap();
+        assert_eq!(last["cache_control"]["type"], "ephemeral");
+    }
+
+    #[test]
+    fn test_build_request_cache_with_no_tools() {
+        let provider = make_anthropic_provider("5m");
+        let msgs = vec![Message { role: "user".into(), content: MessageContent::Text("hi".into()) }];
+        let body = provider.build_request_body("System prompt.", &msgs, None, None);
+
+        // System should still get cache_control
+        let sys = body["system"].as_array().unwrap();
+        assert_eq!(sys[0]["cache_control"]["type"], "ephemeral");
+
+        // No tools key
+        assert!(body.get("tools").is_none());
+    }
+
+    #[test]
+    fn test_build_request_cache_only_last_tool() {
+        let provider = make_anthropic_provider("5m");
+        let msgs = vec![Message { role: "user".into(), content: MessageContent::Text("hi".into()) }];
+        let tools = sample_tools();
+        let body = provider.build_request_body("sys", &msgs, Some(&tools), None);
+
+        let tools_arr = body["tools"].as_array().unwrap();
+        assert_eq!(tools_arr.len(), 2);
+        // First tool should NOT have cache_control
+        assert!(tools_arr[0].get("cache_control").is_none());
+        // Only last tool should have cache_control
+        assert_eq!(tools_arr[1]["cache_control"]["type"], "ephemeral");
     }
 }

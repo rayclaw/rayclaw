@@ -715,6 +715,7 @@ pub struct BedrockProvider {
     credentials: AwsCredentials,
     model: String,
     max_tokens: u32,
+    prompt_cache_ttl: String,
 }
 
 impl BedrockProvider {
@@ -725,6 +726,7 @@ impl BedrockProvider {
             credentials,
             model: config.model.clone(),
             max_tokens: config.max_tokens,
+            prompt_cache_ttl: config.prompt_cache_ttl.clone(),
         })
     }
 
@@ -750,6 +752,8 @@ impl BedrockProvider {
         messages: &[Message],
         tools: Option<&[ToolDefinition]>,
     ) -> serde_json::Value {
+        let use_cache = self.prompt_cache_ttl != "none";
+
         let mut body = serde_json::json!({
             "messages": translate_messages_to_bedrock(messages),
             "inferenceConfig": {
@@ -758,12 +762,31 @@ impl BedrockProvider {
         });
 
         if !system.is_empty() {
-            body["system"] = serde_json::json!([{ "text": system }]);
+            if use_cache {
+                // Add system prompt with cache point
+                body["system"] = serde_json::json!([
+                    { "text": system },
+                    { "cachePoint": { "type": "default", "ttl": self.prompt_cache_ttl } }
+                ]);
+            } else {
+                body["system"] = serde_json::json!([{ "text": system }]);
+            }
         }
 
         if let Some(tools) = tools {
             if !tools.is_empty() {
-                body["toolConfig"] = translate_tools_to_bedrock(tools);
+                let mut tool_config = translate_tools_to_bedrock(tools);
+
+                if use_cache {
+                    // Add cache point after the last tool
+                    if let Some(tools_array) = tool_config.get_mut("tools").and_then(|t| t.as_array_mut()) {
+                        tools_array.push(serde_json::json!({
+                            "cachePoint": { "type": "default", "ttl": self.prompt_cache_ttl }
+                        }));
+                    }
+                }
+
+                body["toolConfig"] = tool_config;
             }
         }
 
@@ -1278,6 +1301,7 @@ mod tests {
             llm_provider: "bedrock".into(),
             model: "anthropic.claude-sonnet-4-5-v2".into(),
             max_tokens: 8192,
+            prompt_cache_ttl: "none".into(),
             max_tool_iterations: 50,
             max_history_messages: 50,
             llm_base_url: None,
@@ -1332,5 +1356,128 @@ mod tests {
         assert_eq!(creds.secret_access_key, "SECRET_TEST");
         assert_eq!(creds.region, "us-west-2");
         assert!(creds.session_token.is_none());
+    }
+
+    // -----------------------------------------------------------------------
+    // Bedrock prompt caching
+    // -----------------------------------------------------------------------
+
+    fn make_bedrock_provider(cache_ttl: &str) -> BedrockProvider {
+        BedrockProvider {
+            http: reqwest::Client::new(),
+            credentials: AwsCredentials {
+                access_key_id: "AKID".into(),
+                secret_access_key: "SECRET".into(),
+                session_token: None,
+                region: "us-east-1".into(),
+            },
+            model: "anthropic.claude-sonnet-4-5-v2".into(),
+            max_tokens: 4096,
+            prompt_cache_ttl: cache_ttl.into(),
+        }
+    }
+
+    fn sample_tools() -> Vec<ToolDefinition> {
+        vec![
+            ToolDefinition {
+                name: "bash".into(),
+                description: "Run bash".into(),
+                input_schema: serde_json::json!({"type": "object", "properties": {"command": {"type": "string"}}}),
+            },
+            ToolDefinition {
+                name: "read_file".into(),
+                description: "Read a file".into(),
+                input_schema: serde_json::json!({"type": "object", "properties": {"path": {"type": "string"}}}),
+            },
+        ]
+    }
+
+    #[test]
+    fn test_build_request_body_bedrock_cache_disabled() {
+        let provider = make_bedrock_provider("none");
+        let msgs = vec![Message { role: "user".into(), content: MessageContent::Text("hi".into()) }];
+        let tools = sample_tools();
+        let body = provider.build_request_body("System prompt.", &msgs, Some(&tools));
+
+        // System should have only text, no cachePoint
+        let sys = body["system"].as_array().unwrap();
+        assert_eq!(sys.len(), 1);
+        assert_eq!(sys[0]["text"], "System prompt.");
+        assert!(sys[0].get("cachePoint").is_none());
+
+        // toolConfig should have no cachePoint entry
+        let tc_tools = body["toolConfig"]["tools"].as_array().unwrap();
+        for t in tc_tools {
+            assert!(t.get("cachePoint").is_none());
+        }
+    }
+
+    #[test]
+    fn test_build_request_body_bedrock_cache_5m() {
+        let provider = make_bedrock_provider("5m");
+        let msgs = vec![Message { role: "user".into(), content: MessageContent::Text("hi".into()) }];
+        let tools = sample_tools();
+        let body = provider.build_request_body("System prompt.", &msgs, Some(&tools));
+
+        // System should have text + cachePoint
+        let sys = body["system"].as_array().unwrap();
+        assert_eq!(sys.len(), 2);
+        assert_eq!(sys[1]["cachePoint"]["type"], "default");
+        assert_eq!(sys[1]["cachePoint"]["ttl"], "5m");
+
+        // toolConfig should end with cachePoint
+        let tc_tools = body["toolConfig"]["tools"].as_array().unwrap();
+        let last = tc_tools.last().unwrap();
+        assert_eq!(last["cachePoint"]["type"], "default");
+        assert_eq!(last["cachePoint"]["ttl"], "5m");
+    }
+
+    #[test]
+    fn test_build_request_body_bedrock_cache_1h() {
+        let provider = make_bedrock_provider("1h");
+        let msgs = vec![Message { role: "user".into(), content: MessageContent::Text("hi".into()) }];
+        let tools = sample_tools();
+        let body = provider.build_request_body("System prompt.", &msgs, Some(&tools));
+
+        let sys = body["system"].as_array().unwrap();
+        assert_eq!(sys[1]["cachePoint"]["ttl"], "1h");
+
+        let tc_tools = body["toolConfig"]["tools"].as_array().unwrap();
+        let last = tc_tools.last().unwrap();
+        assert_eq!(last["cachePoint"]["ttl"], "1h");
+    }
+
+    #[test]
+    fn test_build_request_body_bedrock_cache_no_tools() {
+        let provider = make_bedrock_provider("5m");
+        let msgs = vec![Message { role: "user".into(), content: MessageContent::Text("hi".into()) }];
+        let body = provider.build_request_body("System prompt.", &msgs, None);
+
+        // System should still get cachePoint
+        let sys = body["system"].as_array().unwrap();
+        assert_eq!(sys.len(), 2);
+        assert_eq!(sys[1]["cachePoint"]["type"], "default");
+        assert_eq!(sys[1]["cachePoint"]["ttl"], "5m");
+
+        // No toolConfig
+        assert!(body.get("toolConfig").is_none());
+    }
+
+    #[test]
+    fn test_build_request_body_bedrock_ttl_value_passed_through() {
+        // Verify the actual TTL string is used, not hardcoded
+        for ttl in &["5m", "1h", "30m", "2h"] {
+            let provider = make_bedrock_provider(ttl);
+            let msgs = vec![Message { role: "user".into(), content: MessageContent::Text("hi".into()) }];
+            let tools = sample_tools();
+            let body = provider.build_request_body("sys", &msgs, Some(&tools));
+
+            let sys = body["system"].as_array().unwrap();
+            assert_eq!(sys[1]["cachePoint"]["ttl"].as_str().unwrap(), *ttl);
+
+            let tc_tools = body["toolConfig"]["tools"].as_array().unwrap();
+            let last = tc_tools.last().unwrap();
+            assert_eq!(last["cachePoint"]["ttl"].as_str().unwrap(), *ttl);
+        }
     }
 }

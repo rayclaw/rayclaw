@@ -227,6 +227,7 @@ mod tests {
             model: "claude-test".into(),
             llm_base_url: None,
             max_tokens: 4096,
+            prompt_cache_ttl: "none".into(),
             max_tool_iterations: 100,
             max_history_messages: 50,
             max_document_size_mb: 100,

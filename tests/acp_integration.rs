@@ -42,6 +42,7 @@ fn minimal_config() -> Config {
         model: String::new(),
         llm_base_url: None,
         max_tokens: 8192,
+        prompt_cache_ttl: "none".into(),
         max_tool_iterations: 25,
         max_history_messages: 50,
         max_document_size_mb: 100,

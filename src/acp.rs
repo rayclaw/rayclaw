@@ -665,7 +665,7 @@ impl AcpConnection {
         // Buffer for accumulating streamed message chunks
         let mut message_buffer = String::new();
 
-        let deadline = tokio::time::Instant::now() + timeout;
+        let mut deadline = tokio::time::Instant::now() + timeout;
         let mut line = String::new();
 
         loop {
@@ -692,7 +692,10 @@ impl AcpConnection {
                         self.agent_name
                     ));
                 }
-                Ok(Ok(_)) => {}
+                Ok(Ok(_)) => {
+                    // Reset deadline on each received line (activity-based timeout)
+                    deadline = tokio::time::Instant::now() + timeout;
+                }
             }
 
             let trimmed = line.trim();
