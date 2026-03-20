@@ -1127,6 +1127,62 @@ mod tests {
         assert!(req.headers().get("Accept").unwrap().to_str().unwrap().contains("text/event-stream"));
     }
 
+    /// Helper: build a reqwest::Response from a stream of byte chunks.
+    fn response_from_chunks(chunks: Vec<&'static [u8]>) -> reqwest::Response {
+        let stream = futures_util::stream::iter(
+            chunks
+                .into_iter()
+                .map(|c| Ok::<_, std::io::Error>(Vec::from(c))),
+        );
+        let body = reqwest::Body::wrap_stream(stream);
+        reqwest::Response::from(http::Response::new(body))
+    }
+
+    #[tokio::test]
+    async fn test_read_sse_stream_chunked_event_split_across_chunks() {
+        // SSE event arrives in two chunks: header in one, data in another
+        let response = response_from_chunks(vec![
+            b"event: message\n",
+            b"data: {\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"ok\":true}}\n\n",
+        ]);
+        let val = read_sse_stream(response, 1).await.unwrap();
+        assert_eq!(val["id"], 1);
+        assert_eq!(val["result"]["ok"], true);
+    }
+
+    #[tokio::test]
+    async fn test_read_sse_stream_data_line_split_mid_json() {
+        // JSON payload itself is split across two chunks
+        let response = response_from_chunks(vec![
+            b"data: {\"jsonrpc\":\"2.0\",",
+            b"\"id\":3,\"result\":{\"v\":42}}\n\n",
+        ]);
+        let val = read_sse_stream(response, 3).await.unwrap();
+        assert_eq!(val["result"]["v"], 42);
+    }
+
+    #[tokio::test]
+    async fn test_read_sse_stream_skips_non_matching_then_matches() {
+        // First event has id=1, second has id=2 — request wants id=2
+        let response = response_from_chunks(vec![
+            b"event: message\ndata: {\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"a\":1}}\n\n",
+            b"event: message\n",
+            b"data: {\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"b\":2}}\n\n",
+        ]);
+        let val = read_sse_stream(response, 2).await.unwrap();
+        assert_eq!(val["result"]["b"], 2);
+    }
+
+    #[tokio::test]
+    async fn test_read_sse_stream_trailing_buffer_no_double_newline() {
+        // Stream ends with data but no trailing \n\n — falls back to buffer check
+        let response = response_from_chunks(vec![
+            b"data: {\"jsonrpc\":\"2.0\",\"id\":7,\"result\":{\"tail\":true}}",
+        ]);
+        let val = read_sse_stream(response, 7).await.unwrap();
+        assert_eq!(val["result"]["tail"], true);
+    }
+
     #[test]
     fn test_build_request_no_session_id() {
         let client = reqwest::Client::new();
