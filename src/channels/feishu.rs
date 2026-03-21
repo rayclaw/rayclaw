@@ -31,7 +31,6 @@ type WsSink = Arc<
         >,
     >,
 >;
-use crate::text::split_text;
 use crate::usage::build_usage_report;
 
 // ---------------------------------------------------------------------------
@@ -76,6 +75,88 @@ fn resolve_domain(domain: &str) -> String {
         "lark" => "https://open.larksuite.com".into(),
         other => other.trim_end_matches('/').to_string(),
     }
+}
+
+// ---------------------------------------------------------------------------
+// Interactive Card helpers (Card JSON 2.0)
+// ---------------------------------------------------------------------------
+
+/// Max byte size for a single interactive card's markdown content.
+/// Lark card payloads have a ~30 KB limit; leave margin for JSON envelope.
+const FEISHU_CARD_MARKDOWN_MAX_BYTES: usize = 28_000;
+
+/// Build an interactive card JSON string with a single markdown element.
+/// Uses Card JSON 2.0 structure so that headings, tables, blockquotes,
+/// and inline code render correctly in Feishu.
+fn build_card_content(markdown: &str) -> String {
+    serde_json::json!({
+        "schema": "2.0",
+        "body": {
+            "elements": [{
+                "tag": "markdown",
+                "content": markdown
+            }]
+        }
+    })
+    .to_string()
+}
+
+/// Build the full message body for sending an interactive card message.
+fn build_interactive_card_body(recipient: &str, markdown: &str) -> serde_json::Value {
+    serde_json::json!({
+        "receive_id": recipient,
+        "msg_type": "interactive",
+        "content": build_card_content(markdown),
+    })
+}
+
+/// Split markdown content into chunks that fit within the card byte-size limit.
+/// Splits on newline boundaries to avoid breaking markdown syntax.
+fn split_markdown_chunks(text: &str, max_bytes: usize) -> Vec<&str> {
+    if text.len() <= max_bytes {
+        return vec![text];
+    }
+
+    let mut chunks = Vec::new();
+    let mut start = 0;
+
+    while start < text.len() {
+        if start + max_bytes >= text.len() {
+            chunks.push(&text[start..]);
+            break;
+        }
+
+        let end = start + max_bytes;
+        let search_region = &text[start..end];
+        let split_at = search_region
+            .rfind('\n')
+            .map(|pos| start + pos + 1)
+            .unwrap_or(end);
+
+        // Ensure we land on a valid char boundary
+        let split_at = if text.is_char_boundary(split_at) {
+            split_at
+        } else {
+            (start..split_at)
+                .rev()
+                .find(|&i| text.is_char_boundary(i))
+                .unwrap_or(start)
+        };
+
+        if split_at <= start {
+            // No newline found and we're stuck — force split forward
+            let forced = (end..=text.len())
+                .find(|&i| text.is_char_boundary(i))
+                .unwrap_or(text.len());
+            chunks.push(&text[start..forced]);
+            start = forced;
+        } else {
+            chunks.push(&text[start..split_at]);
+            start = split_at;
+        }
+    }
+
+    chunks
 }
 
 // ---------------------------------------------------------------------------
@@ -181,13 +262,8 @@ impl ChannelAdapter for FeishuAdapter {
 
     async fn send_text(&self, external_chat_id: &str, text: &str) -> Result<(), String> {
         let token = self.ensure_token().await?;
-        for chunk in split_text(text, 4000) {
-            let content = serde_json::json!({ "text": chunk }).to_string();
-            let body = serde_json::json!({
-                "receive_id": external_chat_id,
-                "msg_type": "text",
-                "content": content,
-            });
+        for chunk in split_markdown_chunks(text, FEISHU_CARD_MARKDOWN_MAX_BYTES) {
+            let body = build_interactive_card_body(external_chat_id, chunk);
             let url = format!(
                 "{}/open-apis/im/v1/messages?receive_id_type=chat_id",
                 self.base_url
@@ -656,7 +732,7 @@ const MSG_TYPE_PING: &str = "ping";
 // Standalone helpers
 // ---------------------------------------------------------------------------
 
-/// Send a text response to a Feishu chat, splitting at 4000 chars.
+/// Send a response to a Feishu chat as an interactive card with markdown rendering.
 async fn send_feishu_response(
     http_client: &reqwest::Client,
     base_url: &str,
@@ -664,13 +740,8 @@ async fn send_feishu_response(
     chat_id: &str,
     text: &str,
 ) -> Result<(), String> {
-    for chunk in split_text(text, 4000) {
-        let content = serde_json::json!({ "text": chunk }).to_string();
-        let body = serde_json::json!({
-            "receive_id": chat_id,
-            "msg_type": "text",
-            "content": content,
-        });
+    for chunk in split_markdown_chunks(text, FEISHU_CARD_MARKDOWN_MAX_BYTES) {
+        let body = build_interactive_card_body(chat_id, chunk);
         let url = format!("{base_url}/open-apis/im/v1/messages?receive_id_type=chat_id");
         let resp = http_client
             .post(&url)
