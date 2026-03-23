@@ -532,11 +532,12 @@ impl Config {
             || self.channels.contains_key("discord");
         let has_slack = self.channels.contains_key("slack");
         let has_feishu = self.channels.contains_key("feishu");
+        let has_weixin = self.channels.contains_key("weixin");
         let has_web = self.web_enabled || self.channels.contains_key("web");
 
-        if !(has_telegram || has_discord || has_slack || has_feishu || has_web) {
+        if !(has_telegram || has_discord || has_slack || has_feishu || has_weixin || has_web) {
             return Err(RayClawError::Config(
-                "At least one channel must be enabled: telegram_bot_token, discord_bot_token, channels.slack, channels.feishu, or web_enabled=true".into(),
+                "At least one channel must be enabled: telegram_bot_token, discord_bot_token, channels.slack, channels.feishu, channels.weixin, or web_enabled=true".into(),
             ));
         }
         self.validate_llm()?;

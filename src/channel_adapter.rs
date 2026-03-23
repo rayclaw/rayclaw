@@ -8,7 +8,7 @@ use crate::channel::ConversationKind;
 
 #[async_trait]
 pub trait ChannelAdapter: Send + Sync {
-    /// Unique name: "telegram", "discord", "slack", "web"
+    /// Unique name: "telegram", "discord", "slack", "feishu", "weixin", "web"
     fn name(&self) -> &str;
 
     /// DB chat_type strings this adapter handles + whether each is private/group.

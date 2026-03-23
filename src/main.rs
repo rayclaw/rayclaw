@@ -9,6 +9,15 @@ use tracing::info;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
+const BANNER: &str = r"
+    ██████╗  █████╗ ██╗   ██╗ ██████╗██╗      █████╗ ██╗    ██╗
+    ██╔══██╗██╔══██╗╚██╗ ██╔╝██╔════╝██║     ██╔══██╗██║    ██║
+    ██████╔╝███████║ ╚████╔╝ ██║     ██║     ███████║██║ █╗ ██║
+    ██╔══██╗██╔══██║  ╚██╔╝  ██║     ██║     ██╔══██║██║███╗██║
+    ██║  ██║██║  ██║   ██║   ╚██████╗███████╗██║  ██║╚███╔███╔╝
+    ╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝    ╚═════╝╚══════╝╚═╝  ╚═╝ ╚══╝╚══╝
+";
+
 fn print_help() {
     println!(
         r#"RayClaw v{VERSION} — multi-channel agentic runtime
@@ -17,23 +26,26 @@ Usage:
   rayclaw <command>
 
 Commands:
-  start      Launch the agent runtime (all enabled channels)
-  setup      Interactive setup wizard (creates rayclaw.config.yaml)
-               --force      Overwrite existing config without prompting
-               --provider   Update only LLM provider/model/key
-               --channels   Update only channel configuration
-  doctor     Run preflight environment checks
-  gateway    Service lifecycle (install / start / stop / status / logs)
-  update     Check for updates and self-update the binary
-  version    Print version and exit
-  help       Show this message
+  start         Launch the agent runtime (all enabled channels)
+  setup         Interactive setup wizard (creates rayclaw.config.yaml)
+                  --force      Overwrite existing config without prompting
+                  --provider   Update only LLM provider/model/key
+                  --channels   Update only channel configuration
+  weixin-login  Scan QR code to connect a WeChat account
+                  --base-url   API base URL (default: https://ilinkai.weixin.qq.com)
+                  --data-dir   Data directory for credentials (default: ./rayclaw.data)
+  doctor        Run preflight environment checks
+  gateway       Service lifecycle (install / start / stop / status / logs)
+  update        Check for updates and self-update the binary
+  version       Print version and exit
+  help          Show this message
 
 Getting started:
   rayclaw setup      Configure provider, channels, and options
   rayclaw doctor     Verify environment is ready
   rayclaw start      Start serving on configured channels
 
-At least one channel must be enabled (Telegram, Discord, Slack, Feishu, or Web UI).
+At least one channel must be enabled (Telegram, Discord, Slack, Feishu, WeChat, or Web UI).
 
 Docs & source:
   https://rayclaw.ai"#
@@ -115,7 +127,9 @@ async fn main() -> anyhow::Result<()> {
     let command = args.get(1).map(|s| s.as_str());
 
     match command {
-        Some("start") => {}
+        Some("start") => {
+            eprintln!("{}", console::style(BANNER).cyan().bold());
+        }
         Some("gateway") => {
             gateway::handle_gateway_cli(&args[2..])?;
             return Ok(());
@@ -128,6 +142,47 @@ async fn main() -> anyhow::Result<()> {
             let saved = setup_wizard::run_setup_wizard(force, provider_only, channels_only)?;
             if !saved {
                 println!("Setup canceled");
+            }
+            return Ok(());
+        }
+        #[cfg(feature = "weixin")]
+        Some("weixin-login") => {
+            let rest = &args[2..];
+            let base_url = rest
+                .windows(2)
+                .find(|w| w[0] == "--base-url")
+                .map(|w| w[1].as_str());
+            let data_dir = rest
+                .windows(2)
+                .find(|w| w[0] == "--data-dir")
+                .map(|w| w[1].as_str())
+                .unwrap_or("./rayclaw.data");
+            let config_path = std::env::var("RAYCLAW_CONFIG")
+                .ok()
+                .or_else(|| {
+                    // Auto-detect config file in current directory
+                    for name in &["rayclaw.config.yaml", "rayclaw.config.yml"] {
+                        if Path::new(name).exists() {
+                            return Some(name.to_string());
+                        }
+                    }
+                    None
+                });
+            // Ensure data dir exists
+            let _ = std::fs::create_dir_all(data_dir);
+            match rayclaw::channels::weixin::run_qr_login(
+                base_url,
+                None,
+                data_dir,
+                config_path.as_deref(),
+            )
+            .await
+            {
+                Ok(_) => {}
+                Err(e) => {
+                    eprintln!("WeChat login failed: {e}");
+                    std::process::exit(1);
+                }
             }
             return Ok(());
         }

@@ -82,6 +82,26 @@ const DYNAMIC_CHANNELS: &[DynamicChannelDef] = &[
             },
         ],
     },
+    DynamicChannelDef {
+        name: "weixin",
+        presence_keys: &["bot_token"],
+        fields: &[
+            ChannelFieldDef {
+                yaml_key: "bot_token",
+                label: "WeChat bot token (from: rayclaw weixin-login)",
+                default: "",
+                secret: true,
+                required: true,
+            },
+            ChannelFieldDef {
+                yaml_key: "base_url",
+                label: "WeChat API base URL (leave empty for default)",
+                default: "",
+                secret: false,
+                required: false,
+            },
+        ],
+    },
 ];
 
 fn dynamic_field_key(channel: &str, yaml_key: &str) -> String {
@@ -794,6 +814,7 @@ fn step_channels(
                 "discord" => "Discord",
                 "slack" => "Slack",
                 "feishu" => "Feishu / Lark",
+                "weixin" => "WeChat",
                 _ => o,
             };
             name.to_string()

@@ -8,6 +8,8 @@ pub mod feishu;
 pub mod slack;
 #[cfg(feature = "telegram")]
 pub mod telegram;
+#[cfg(feature = "weixin")]
+pub mod weixin;
 
 // Re-export adapter types
 #[cfg(feature = "discord")]
@@ -18,3 +20,5 @@ pub use feishu::FeishuAdapter;
 pub use slack::SlackAdapter;
 #[cfg(feature = "telegram")]
 pub use telegram::TelegramAdapter;
+#[cfg(feature = "weixin")]
+pub use weixin::WeixinAdapter;

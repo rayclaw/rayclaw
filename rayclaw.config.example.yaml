@@ -96,6 +96,13 @@ compact_keep_recent: 20         # messages to keep verbatim after compaction
 #     domain: "feishu"               # feishu | lark | custom URL
 #     allowed_chats: []
 
+# ── WeChat / Weixin (optional, iLink Bot) ─────────
+# channels:
+#   weixin:
+#     bot_token: ""                  # Bearer token from QR login
+#     base_url: "https://ilinkai.weixin.qq.com"   # default
+#     route_tag: ""                  # optional SKRouteTag header
+
 # ── Web UI ──────────────────────────────────────────
 web_enabled: true
 web_host: "127.0.0.1"

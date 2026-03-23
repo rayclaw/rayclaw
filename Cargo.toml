@@ -9,12 +9,13 @@ keywords = ["ai", "agent", "llm", "chatbot", "runtime"]
 categories = ["api-bindings", "asynchronous"]
 
 [features]
-default = ["telegram", "discord", "slack", "feishu"]
-all = ["telegram", "discord", "slack", "feishu", "web"]
+default = ["telegram", "discord", "slack", "feishu", "weixin"]
+all = ["telegram", "discord", "slack", "feishu", "weixin", "web"]
 telegram = ["dep:teloxide"]
 discord = ["dep:serenity"]
 slack = []
 feishu = []
+weixin = []
 web = ["dep:axum"]
 sqlite-vec = ["dep:sqlite-vec"]
 openssl-vendored = ["dep:openssl"]
@@ -54,6 +55,7 @@ hex = "0.4"
 crc32fast = "1"
 sqlite-vec = { version = "0.1.7-alpha.10", optional = true }
 openssl = { version = "0.10", features = ["vendored"], optional = true }
+qrcode = "0.14"
 
 [dev-dependencies]
 tower = "0.5"

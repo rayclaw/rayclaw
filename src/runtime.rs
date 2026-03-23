@@ -33,6 +33,8 @@ use crate::channels::FeishuAdapter;
 use crate::channels::SlackAdapter;
 #[cfg(feature = "telegram")]
 use crate::channels::TelegramAdapter;
+#[cfg(feature = "weixin")]
+use crate::channels::WeixinAdapter;
 use crate::config::Config;
 use crate::db::Database;
 use crate::embedding::EmbeddingProvider;
@@ -179,6 +181,20 @@ pub async fn run(
 ) -> anyhow::Result<()> {
     let db = Arc::new(db);
 
+    // Clear stale TODO.json files from previous runs to prevent
+    // in_progress tasks from being blindly resumed after a restart.
+    {
+        let groups_dir = std::path::PathBuf::from(&config.data_dir).join("groups");
+        if let Ok(entries) = std::fs::read_dir(&groups_dir) {
+            for entry in entries.flatten() {
+                let todo = entry.path().join("TODO.json");
+                if todo.exists() {
+                    let _ = std::fs::remove_file(&todo);
+                }
+            }
+        }
+    }
+
     // Build channel registry from config
     #[allow(unused_mut)]
     let mut registry = ChannelRegistry::new();
@@ -191,6 +207,8 @@ pub async fn run(
     let mut has_slack = false;
     #[cfg(feature = "feishu")]
     let mut has_feishu = false;
+    #[cfg(feature = "weixin")]
+    let mut has_weixin = false;
 
     #[cfg(feature = "telegram")]
     if let Some(tg_cfg) = config.channel_config::<TelegramChannelConfig>("telegram") {
@@ -232,6 +250,20 @@ pub async fn run(
                 feishu_cfg.app_secret.clone(),
                 feishu_cfg.domain.clone(),
             )));
+        }
+    }
+
+    #[cfg(feature = "weixin")]
+    let mut weixin_adapter: Option<Arc<WeixinAdapter>> = None;
+    #[cfg(feature = "weixin")]
+    if let Some(weixin_cfg) =
+        config.channel_config::<crate::channels::weixin::WeixinChannelConfig>("weixin")
+    {
+        if !weixin_cfg.bot_token.trim().is_empty() {
+            has_weixin = true;
+            let adapter = Arc::new(WeixinAdapter::new(&weixin_cfg));
+            registry.register(adapter.clone());
+            weixin_adapter = Some(adapter);
         }
     }
 
@@ -286,6 +318,15 @@ pub async fn run(
         });
     }
 
+    #[cfg(feature = "weixin")]
+    if let Some(adapter) = weixin_adapter {
+        let weixin_state = state.clone();
+        info!("Starting WeChat bot (iLink long-poll)");
+        tokio::spawn(async move {
+            crate::channels::weixin::start_weixin_bot(weixin_state, adapter).await;
+        });
+    }
+
     #[cfg(feature = "web")]
     if state.config.web_enabled {
         let web_state = state.clone();
@@ -317,6 +358,10 @@ pub async fn run(
         #[cfg(feature = "feishu")]
         {
             active = active || has_feishu;
+        }
+        #[cfg(feature = "weixin")]
+        {
+            active = active || has_weixin;
         }
         active
     };
@@ -351,7 +396,7 @@ pub async fn run(
         Ok(())
     } else {
         Err(anyhow!(
-            "No channel is enabled. Configure Telegram, Discord, Slack, Feishu, or web_enabled=true."
+            "No channel is enabled. Configure Telegram, Discord, Slack, Feishu, WeChat, or web_enabled=true."
         ))
     }
 }
