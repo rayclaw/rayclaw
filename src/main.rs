@@ -157,17 +157,15 @@ async fn main() -> anyhow::Result<()> {
                 .find(|w| w[0] == "--data-dir")
                 .map(|w| w[1].as_str())
                 .unwrap_or("./rayclaw.data");
-            let config_path = std::env::var("RAYCLAW_CONFIG")
-                .ok()
-                .or_else(|| {
-                    // Auto-detect config file in current directory
-                    for name in &["rayclaw.config.yaml", "rayclaw.config.yml"] {
-                        if Path::new(name).exists() {
-                            return Some(name.to_string());
-                        }
+            let config_path = std::env::var("RAYCLAW_CONFIG").ok().or_else(|| {
+                // Auto-detect config file in current directory
+                for name in &["rayclaw.config.yaml", "rayclaw.config.yml"] {
+                    if Path::new(name).exists() {
+                        return Some(name.to_string());
                     }
-                    None
-                });
+                }
+                None
+            });
             // Ensure data dir exists
             let _ = std::fs::create_dir_all(data_dir);
             match rayclaw::channels::weixin::run_qr_login(

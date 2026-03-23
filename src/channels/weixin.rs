@@ -215,7 +215,12 @@ fn random_wechat_uin() -> String {
     use base64::Engine;
     // Use uuid v4 bytes as a source of randomness (rand crate not available)
     let uuid_bytes = uuid::Uuid::new_v4();
-    let val = u32::from_le_bytes([uuid_bytes.as_bytes()[0], uuid_bytes.as_bytes()[1], uuid_bytes.as_bytes()[2], uuid_bytes.as_bytes()[3]]);
+    let val = u32::from_le_bytes([
+        uuid_bytes.as_bytes()[0],
+        uuid_bytes.as_bytes()[1],
+        uuid_bytes.as_bytes()[2],
+        uuid_bytes.as_bytes()[3],
+    ]);
     let decimal = val.to_string();
     base64::engine::general_purpose::STANDARD.encode(decimal.as_bytes())
 }
@@ -227,10 +232,7 @@ fn build_headers(token: &str, route_tag: Option<&str>) -> reqwest::header::Heade
         reqwest::header::CONTENT_TYPE,
         "application/json".parse().unwrap(),
     );
-    headers.insert(
-        "AuthorizationType",
-        "ilink_bot_token".parse().unwrap(),
-    );
+    headers.insert("AuthorizationType", "ilink_bot_token".parse().unwrap());
     if !token.is_empty() {
         if let Ok(val) = format!("Bearer {token}").parse() {
             headers.insert(reqwest::header::AUTHORIZATION, val);
@@ -509,9 +511,7 @@ impl WeixinAdapter {
         context_token: Option<&str>,
     ) -> Result<(), String> {
         if context_token.is_none() {
-            warn!(
-                "Weixin: sending without context_token to {to_user_id} — reply may be orphaned"
-            );
+            warn!("Weixin: sending without context_token to {to_user_id} — reply may be orphaned");
         }
 
         for chunk in split_text_chunks(text, WEIXIN_TEXT_MAX_CHARS) {
@@ -758,20 +758,15 @@ async fn handle_weixin_message(
                     is_from_bot: true,
                     timestamp: chrono::Utc::now().to_rfc3339(),
                 };
-                let _ = call_blocking(app_state.db.clone(), move |db| {
-                    db.store_message(&bot_msg)
-                })
-                .await;
+                let _ =
+                    call_blocking(app_state.db.clone(), move |db| db.store_message(&bot_msg)).await;
             }
         }
         Err(e) => {
             typing_handle.abort();
             error!("Weixin: agent error for {from_user_id}: {e}");
             let _ = adapter
-                .send_text(
-                    &from_user_id,
-                    &format!("Sorry, an error occurred: {e}"),
-                )
+                .send_text(&from_user_id, &format!("Sorry, an error occurred: {e}"))
                 .await;
         }
     }
@@ -801,17 +796,17 @@ pub async fn start_weixin_bot(app_state: Arc<AppState>, adapter: Arc<WeixinAdapt
     let mut get_updates_buf = load_sync_buf(&app_state.config.data_dir);
     let mut paused_until: Option<std::time::Instant> = None;
 
-    info!("Weixin: long-poll loop started, base_url={}", weixin_cfg.base_url);
+    info!(
+        "Weixin: long-poll loop started, base_url={}",
+        weixin_cfg.base_url
+    );
 
     loop {
         // Check session pause
         if let Some(until) = paused_until {
             if std::time::Instant::now() < until {
                 let remaining = until - std::time::Instant::now();
-                info!(
-                    "Weixin: session paused, {}s remaining",
-                    remaining.as_secs()
-                );
+                info!("Weixin: session paused, {}s remaining", remaining.as_secs());
                 tokio::time::sleep(std::time::Duration::from_secs(60)).await;
                 continue;
             } else {
@@ -970,7 +965,8 @@ fn save_credentials(data_dir: &str, creds: &WeixinCredentials) -> Result<(), Str
     let path = credentials_path(data_dir);
     let json =
         serde_json::to_string_pretty(creds).map_err(|e| format!("serialize credentials: {e}"))?;
-    std::fs::write(&path, &json).map_err(|e| format!("write credentials to {}: {e}", path.display()))?;
+    std::fs::write(&path, &json)
+        .map_err(|e| format!("write credentials to {}: {e}", path.display()))?;
     info!("Weixin credentials saved to {}", path.display());
     Ok(())
 }
@@ -1093,10 +1089,10 @@ fn print_qr_terminal(data: &str) {
                 .map(|r| r[x] == qrcode::Color::Dark)
                 .unwrap_or(false);
             match (top, bot) {
-                (false, false) => line.push('█'),  // both light
-                (true, true) => line.push(' '),    // both dark
-                (true, false) => line.push('▄'),   // top dark, bot light
-                (false, true) => line.push('▀'),   // top light, bot dark
+                (false, false) => line.push('█'), // both light
+                (true, true) => line.push(' '),   // both dark
+                (true, false) => line.push('▄'),  // top dark, bot light
+                (false, true) => line.push('▀'),  // top light, bot dark
             }
         }
         line.push('█'); // right border
@@ -1139,7 +1135,8 @@ fn write_token_to_config(config_path: &str, creds: &WeixinCredentials) -> Result
                     && !trimmed.starts_with("route_tag:")
                     && !trimmed.starts_with("account_id:")
                     && !trimmed.starts_with("bot_token:")
-                    && !line.starts_with(' ') && !line.starts_with('\t')
+                    && !line.starts_with(' ')
+                    && !line.starts_with('\t')
                 {
                     // Left the weixin block without finding bot_token
                     in_weixin = false;
@@ -1156,16 +1153,26 @@ fn write_token_to_config(config_path: &str, creds: &WeixinCredentials) -> Result
             let mut insert_at = idx + 1;
             while insert_at < lines.len() {
                 let l = &lines[insert_at];
-                if l.trim().is_empty() || l.starts_with(' ') || l.starts_with('\t') || l.trim().starts_with('#') {
+                if l.trim().is_empty()
+                    || l.starts_with(' ')
+                    || l.starts_with('\t')
+                    || l.trim().starts_with('#')
+                {
                     insert_at += 1;
                 } else {
                     break;
                 }
             }
-            lines.insert(insert_at, format!("  weixin:"));
-            lines.insert(insert_at + 1, format!("    bot_token: \"{}\"", creds.bot_token));
+            lines.insert(insert_at, "  weixin:".to_string());
+            lines.insert(
+                insert_at + 1,
+                format!("    bot_token: \"{}\"", creds.bot_token),
+            );
             if creds.base_url != DEFAULT_API_BASE_URL {
-                lines.insert(insert_at + 2, format!("    base_url: \"{}\"", creds.base_url));
+                lines.insert(
+                    insert_at + 2,
+                    format!("    base_url: \"{}\"", creds.base_url),
+                );
             }
         }
         lines.join("\n") + "\n"
@@ -1204,12 +1211,8 @@ pub async fn run_qr_login(
     println!("Fetching QR code...\n");
 
     let qr = fetch_qr_code(&client, base_url, route_tag).await?;
-    let qrcode = qr
-        .qrcode
-        .ok_or("Server returned empty qrcode field")?;
-    let qrcode_url = qr
-        .qrcode_img_content
-        .unwrap_or_else(|| qrcode.clone());
+    let qrcode = qr.qrcode.ok_or("Server returned empty qrcode field")?;
+    let qrcode_url = qr.qrcode_img_content.unwrap_or_else(|| qrcode.clone());
 
     print_qr_terminal(&qrcode_url);
 
@@ -1218,7 +1221,10 @@ pub async fn run_qr_login(
     let mut refresh_count: u32 = 1;
     let mut scanned_printed = false;
 
-    println!("Waiting for scan (timeout: {}s)...\n", QR_LOGIN_TIMEOUT.as_secs());
+    println!(
+        "Waiting for scan (timeout: {}s)...\n",
+        QR_LOGIN_TIMEOUT.as_secs()
+    );
 
     while std::time::Instant::now() < deadline {
         let status = poll_qr_status(&client, base_url, &current_qrcode, route_tag).await?;
@@ -1242,9 +1248,7 @@ pub async fn run_qr_login(
                     "\n\n  QR code expired, refreshing ({refresh_count}/{QR_MAX_REFRESH})..."
                 );
                 let qr = fetch_qr_code(&client, base_url, route_tag).await?;
-                current_qrcode = qr
-                    .qrcode
-                    .ok_or("Server returned empty qrcode on refresh")?;
+                current_qrcode = qr.qrcode.ok_or("Server returned empty qrcode on refresh")?;
                 let url = qr
                     .qrcode_img_content
                     .unwrap_or_else(|| current_qrcode.clone());
@@ -1283,7 +1287,10 @@ pub async fn run_qr_login(
                         ""
                     }
                 );
-                println!("\n  Credentials saved to {}/weixin_credentials.json", data_dir);
+                println!(
+                    "\n  Credentials saved to {}/weixin_credentials.json",
+                    data_dir
+                );
 
                 if let Some(cfg_path) = config_path {
                     match write_token_to_config(cfg_path, &creds) {

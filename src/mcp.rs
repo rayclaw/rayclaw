@@ -2,11 +2,11 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex as StdMutex};
 use std::time::{Duration, Instant};
 
+use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, Command};
 use tokio::sync::Mutex;
-use futures_util::StreamExt;
 use tracing::{error, info, warn};
 
 const DEFAULT_PROTOCOL_VERSION: &str = "2025-11-05";
@@ -632,7 +632,9 @@ impl McpServer {
 
         if !status.is_success() {
             let body_text = response.text().await.unwrap_or_default();
-            return Err(format!("HTTP MCP request failed with {status}: {body_text}"));
+            return Err(format!(
+                "HTTP MCP request failed with {status}: {body_text}"
+            ));
         }
 
         let content_type = response
@@ -1044,10 +1046,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_read_sse_stream_single_event() {
-        let body = "event: message\ndata: {\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"ok\":true}}\n\n";
-        let response = http::Response::builder()
-            .body(body)
-            .unwrap();
+        let body =
+            "event: message\ndata: {\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"ok\":true}}\n\n";
+        let response = http::Response::builder().body(body).unwrap();
         let response = reqwest::Response::from(response);
         let val = read_sse_stream(response, 1).await.unwrap();
         assert_eq!(val["id"], 1);
@@ -1057,9 +1058,7 @@ mod tests {
     #[tokio::test]
     async fn test_read_sse_stream_matches_request_id() {
         let body = "event: message\ndata: {\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"first\":true}}\n\nevent: message\ndata: {\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{\"second\":true}}\n\n";
-        let response = reqwest::Response::from(
-            http::Response::builder().body(body).unwrap(),
-        );
+        let response = reqwest::Response::from(http::Response::builder().body(body).unwrap());
         let val = read_sse_stream(response, 2).await.unwrap();
         assert_eq!(val["result"]["second"], true);
     }
@@ -1067,9 +1066,7 @@ mod tests {
     #[tokio::test]
     async fn test_read_sse_stream_no_match() {
         let body = "event: ping\n\n";
-        let response = reqwest::Response::from(
-            http::Response::builder().body(body).unwrap(),
-        );
+        let response = reqwest::Response::from(http::Response::builder().body(body).unwrap());
         assert!(read_sse_stream(response, 1).await.is_err());
     }
 
@@ -1122,9 +1119,18 @@ mod tests {
             params: None,
         };
         let req = inner.build_request(&body).build().unwrap();
-        assert_eq!(req.headers().get("Mcp-Session-Id").unwrap(), "test-session-123");
+        assert_eq!(
+            req.headers().get("Mcp-Session-Id").unwrap(),
+            "test-session-123"
+        );
         assert_eq!(req.headers().get("X-Custom").unwrap(), "val");
-        assert!(req.headers().get("Accept").unwrap().to_str().unwrap().contains("text/event-stream"));
+        assert!(req
+            .headers()
+            .get("Accept")
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .contains("text/event-stream"));
     }
 
     /// Helper: build a reqwest::Response from a stream of byte chunks.

@@ -779,7 +779,9 @@ impl BedrockProvider {
 
                 if use_cache {
                     // Add cache point after the last tool
-                    if let Some(tools_array) = tool_config.get_mut("tools").and_then(|t| t.as_array_mut()) {
+                    if let Some(tools_array) =
+                        tool_config.get_mut("tools").and_then(|t| t.as_array_mut())
+                    {
                         tools_array.push(serde_json::json!({
                             "cachePoint": { "type": "default", "ttl": self.prompt_cache_ttl }
                         }));
@@ -1395,7 +1397,10 @@ mod tests {
     #[test]
     fn test_build_request_body_bedrock_cache_disabled() {
         let provider = make_bedrock_provider("none");
-        let msgs = vec![Message { role: "user".into(), content: MessageContent::Text("hi".into()) }];
+        let msgs = vec![Message {
+            role: "user".into(),
+            content: MessageContent::Text("hi".into()),
+        }];
         let tools = sample_tools();
         let body = provider.build_request_body("System prompt.", &msgs, Some(&tools));
 
@@ -1415,7 +1420,10 @@ mod tests {
     #[test]
     fn test_build_request_body_bedrock_cache_5m() {
         let provider = make_bedrock_provider("5m");
-        let msgs = vec![Message { role: "user".into(), content: MessageContent::Text("hi".into()) }];
+        let msgs = vec![Message {
+            role: "user".into(),
+            content: MessageContent::Text("hi".into()),
+        }];
         let tools = sample_tools();
         let body = provider.build_request_body("System prompt.", &msgs, Some(&tools));
 
@@ -1435,7 +1443,10 @@ mod tests {
     #[test]
     fn test_build_request_body_bedrock_cache_1h() {
         let provider = make_bedrock_provider("1h");
-        let msgs = vec![Message { role: "user".into(), content: MessageContent::Text("hi".into()) }];
+        let msgs = vec![Message {
+            role: "user".into(),
+            content: MessageContent::Text("hi".into()),
+        }];
         let tools = sample_tools();
         let body = provider.build_request_body("System prompt.", &msgs, Some(&tools));
 
@@ -1450,7 +1461,10 @@ mod tests {
     #[test]
     fn test_build_request_body_bedrock_cache_no_tools() {
         let provider = make_bedrock_provider("5m");
-        let msgs = vec![Message { role: "user".into(), content: MessageContent::Text("hi".into()) }];
+        let msgs = vec![Message {
+            role: "user".into(),
+            content: MessageContent::Text("hi".into()),
+        }];
         let body = provider.build_request_body("System prompt.", &msgs, None);
 
         // System should still get cachePoint
@@ -1468,7 +1482,10 @@ mod tests {
         // Verify the actual TTL string is used, not hardcoded
         for ttl in &["5m", "1h", "30m", "2h"] {
             let provider = make_bedrock_provider(ttl);
-            let msgs = vec![Message { role: "user".into(), content: MessageContent::Text("hi".into()) }];
+            let msgs = vec![Message {
+                role: "user".into(),
+                content: MessageContent::Text("hi".into()),
+            }];
             let tools = sample_tools();
             let body = provider.build_request_body("sys", &msgs, Some(&tools));
 

@@ -16,8 +16,8 @@ use crate::config::Config;
 use crate::config::WorkingDirIsolation;
 use crate::error::RayClawError;
 use crate::llm_types::{
-    ContentBlock, ImageSource, Message, MessageContent, MessagesResponse,
-    ResponseContentBlock, ToolDefinition, Usage,
+    ContentBlock, ImageSource, Message, MessageContent, MessagesResponse, ResponseContentBlock,
+    ToolDefinition, Usage,
 };
 
 /// Convert a `MessageContent` into a `Vec<ContentBlock>`, wrapping plain text
@@ -297,13 +297,14 @@ impl AnthropicProvider {
         if let Some(tool_defs) = tools {
             if !tool_defs.is_empty() {
                 if use_cache {
-                    let mut tools_json = serde_json::to_value(tool_defs).unwrap_or_else(|_| json!([]));
+                    let mut tools_json =
+                        serde_json::to_value(tool_defs).unwrap_or_else(|_| json!([]));
                     if let Some(tools_array) = tools_json.as_array_mut() {
                         if let Some(last_tool) = tools_array.last_mut() {
                             if let Some(tool_obj) = last_tool.as_object_mut() {
                                 tool_obj.insert(
                                     "cache_control".to_string(),
-                                    json!({"type": "ephemeral"})
+                                    json!({"type": "ephemeral"}),
                                 );
                             }
                         }
@@ -343,10 +344,7 @@ impl AnthropicProvider {
             req = req.header("anthropic-beta", "prompt-caching-2024-07-31");
         }
 
-        let response = req
-            .json(&body)
-            .send()
-            .await?;
+        let response = req.json(&body).send().await?;
 
         let status = response.status();
         if !status.is_success() {
@@ -732,12 +730,7 @@ impl LlmProvider for AnthropicProvider {
     ) -> Result<MessagesResponse, RayClawError> {
         let messages = sanitize_messages(messages);
 
-        let body = self.build_request_body(
-            system,
-            &messages,
-            tools.as_deref(),
-            None,
-        );
+        let body = self.build_request_body(system, &messages, tools.as_deref(), None);
 
         let mut retries = 0u32;
         let max_retries = 3;
@@ -755,10 +748,7 @@ impl LlmProvider for AnthropicProvider {
                 req = req.header("anthropic-beta", "prompt-caching-2024-07-31");
             }
 
-            let response = req
-                .json(&body)
-                .send()
-                .await?;
+            let response = req.json(&body).send().await?;
 
             let status = response.status();
 
@@ -801,13 +791,8 @@ impl LlmProvider for AnthropicProvider {
     ) -> Result<MessagesResponse, RayClawError> {
         let messages = sanitize_messages(messages);
 
-        self.send_message_stream_single_pass(
-            system,
-            &messages,
-            tools.as_deref(),
-            text_tx,
-        )
-        .await
+        self.send_message_stream_single_pass(system, &messages, tools.as_deref(), text_tx)
+            .await
     }
 }
 
@@ -2846,7 +2831,10 @@ data: [DONE]
     #[test]
     fn test_build_request_body_cache_disabled() {
         let provider = make_anthropic_provider("none");
-        let msgs = vec![Message { role: "user".into(), content: MessageContent::Text("hi".into()) }];
+        let msgs = vec![Message {
+            role: "user".into(),
+            content: MessageContent::Text("hi".into()),
+        }];
         let tools = sample_tools();
         let body = provider.build_request_body("You are helpful.", &msgs, Some(&tools), None);
 
@@ -2863,7 +2851,10 @@ data: [DONE]
     #[test]
     fn test_build_request_body_cache_enabled_5m() {
         let provider = make_anthropic_provider("5m");
-        let msgs = vec![Message { role: "user".into(), content: MessageContent::Text("hi".into()) }];
+        let msgs = vec![Message {
+            role: "user".into(),
+            content: MessageContent::Text("hi".into()),
+        }];
         let tools = sample_tools();
         let body = provider.build_request_body("You are helpful.", &msgs, Some(&tools), None);
 
@@ -2881,7 +2872,10 @@ data: [DONE]
     #[test]
     fn test_build_request_body_cache_enabled_1h() {
         let provider = make_anthropic_provider("1h");
-        let msgs = vec![Message { role: "user".into(), content: MessageContent::Text("hi".into()) }];
+        let msgs = vec![Message {
+            role: "user".into(),
+            content: MessageContent::Text("hi".into()),
+        }];
         let tools = sample_tools();
         let body = provider.build_request_body("You are helpful.", &msgs, Some(&tools), None);
 
@@ -2897,7 +2891,10 @@ data: [DONE]
     #[test]
     fn test_build_request_cache_with_no_tools() {
         let provider = make_anthropic_provider("5m");
-        let msgs = vec![Message { role: "user".into(), content: MessageContent::Text("hi".into()) }];
+        let msgs = vec![Message {
+            role: "user".into(),
+            content: MessageContent::Text("hi".into()),
+        }];
         let body = provider.build_request_body("System prompt.", &msgs, None, None);
 
         // System should still get cache_control
@@ -2911,7 +2908,10 @@ data: [DONE]
     #[test]
     fn test_build_request_cache_only_last_tool() {
         let provider = make_anthropic_provider("5m");
-        let msgs = vec![Message { role: "user".into(), content: MessageContent::Text("hi".into()) }];
+        let msgs = vec![Message {
+            role: "user".into(),
+            content: MessageContent::Text("hi".into()),
+        }];
         let tools = sample_tools();
         let body = provider.build_request_body("sys", &msgs, Some(&tools), None);
 

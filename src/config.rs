@@ -1150,14 +1150,16 @@ discord_allowed_channels: [111, 222]
 
     #[test]
     fn test_prompt_cache_ttl_from_yaml() {
-        let yaml = "telegram_bot_token: tok\nbot_username: bot\napi_key: key\nprompt_cache_ttl: \"1h\"\n";
+        let yaml =
+            "telegram_bot_token: tok\nbot_username: bot\napi_key: key\nprompt_cache_ttl: \"1h\"\n";
         let config: Config = serde_yaml::from_str(yaml).unwrap();
         assert_eq!(config.prompt_cache_ttl, "1h");
     }
 
     #[test]
     fn test_prompt_cache_ttl_from_yaml_5m() {
-        let yaml = "telegram_bot_token: tok\nbot_username: bot\napi_key: key\nprompt_cache_ttl: \"5m\"\n";
+        let yaml =
+            "telegram_bot_token: tok\nbot_username: bot\napi_key: key\nprompt_cache_ttl: \"5m\"\n";
         let config: Config = serde_yaml::from_str(yaml).unwrap();
         assert_eq!(config.prompt_cache_ttl, "5m");
     }
