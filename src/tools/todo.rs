@@ -18,8 +18,24 @@ fn todo_path(groups_dir: &Path, chat_id: i64) -> PathBuf {
     groups_dir.join(chat_id.to_string()).join("TODO.json")
 }
 
+/// Maximum age for a TODO file before it's considered stale and auto-cleared.
+const TODO_MAX_AGE: std::time::Duration = std::time::Duration::from_secs(5 * 60);
+
 fn read_todos(groups_dir: &Path, chat_id: i64) -> Vec<TodoItem> {
     let path = todo_path(groups_dir, chat_id);
+    // Auto-clear stale TODO files to prevent cross-session task loops
+    if let Ok(meta) = std::fs::metadata(&path) {
+        if let Ok(modified) = meta.modified() {
+            if modified.elapsed().unwrap_or_default() > TODO_MAX_AGE {
+                info!(
+                    "Removing stale TODO.json for chat {chat_id} (older than {}s)",
+                    TODO_MAX_AGE.as_secs()
+                );
+                let _ = std::fs::remove_file(&path);
+                return Vec::new();
+            }
+        }
+    }
     match std::fs::read_to_string(&path) {
         Ok(content) => serde_json::from_str(&content).unwrap_or_default(),
         Err(_) => Vec::new(),

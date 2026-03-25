@@ -25,9 +25,9 @@ import {
   Button,
   Callout,
   Card,
-  Dialog,
   Flex,
   Heading,
+  ScrollArea,
   Select,
   Switch,
   Tabs,
@@ -38,6 +38,7 @@ import {
 import '@radix-ui/themes/styles.css'
 import '@assistant-ui/react-ui/styles/index.css'
 import './styles.css'
+import { Dashboard } from './components/dashboard'
 import { SessionSidebar } from './components/session-sidebar'
 import { UsagePanel, type InjectionLogPoint, type MemoryObservability, type ReflectorRunPoint } from './components/usage-panel'
 import type { SessionItem } from './types'
@@ -631,6 +632,7 @@ function App() {
   const [statusText, setStatusText] = useState<string>('Idle')
   const [replayNotice, setReplayNotice] = useState<string>('')
   const [sending, setSending] = useState<boolean>(false)
+  const [dashboardOpen, setDashboardOpen] = useState<boolean>(false)
   const [configOpen, setConfigOpen] = useState<boolean>(false)
   const [config, setConfig] = useState<ConfigPayload | null>(null)
   const [configDraft, setConfigDraft] = useState<Record<string, unknown>>({})
@@ -1000,6 +1002,8 @@ function App() {
         }),
       ),
     })
+    setDashboardOpen(false)
+    setUsageOpen(false)
     setConfigOpen(true)
   }
 
@@ -1029,6 +1033,8 @@ function App() {
       }>(`/api/memory_observability?${moQuery.toString()}`)
       setUsageReflectorRuns(Array.isArray(series.reflector_runs) ? series.reflector_runs : [])
       setUsageInjectionLogs(Array.isArray(series.injection_logs) ? series.injection_logs : [])
+      setDashboardOpen(false)
+      setConfigOpen(false)
       setUsageOpen(true)
     } catch (e) {
       setUsageError(e instanceof Error ? e.message : String(e))
@@ -1289,12 +1295,13 @@ function App() {
             onToggleAppearance={toggleAppearance}
             sessionItems={sessionItems}
             selectedSessionKey={sessionKey}
-            onSessionSelect={(key) => setSessionKey(key)}
+            onSessionSelect={(key) => { setDashboardOpen(false); setUsageOpen(false); setConfigOpen(false); setSessionKey(key) }}
             onRefreshSession={(key) => void onRefreshSessionByKey(key)}
             onResetSession={(key) => void onResetSessionByKey(key)}
             onDeleteSession={(key) => void onDeleteSessionByKey(key)}
             onOpenConfig={openConfig}
             onOpenUsage={() => openUsage(sessionKey)}
+            onOpenDashboard={() => { setUsageOpen(false); setConfigOpen(false); setDashboardOpen(true) }}
             onNewSession={createSession}
           />
 
@@ -1305,452 +1312,458 @@ function App() {
                 : 'flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-white/95'
             }
           >
-            <header
-              className={
-                appearance === 'dark'
-                  ? 'sticky top-0 z-10 border-b border-[color:var(--rc-border)] bg-[color:var(--rc-bg-panel)]/95 px-4 py-3 backdrop-blur-sm'
-                  : 'sticky top-0 z-10 border-b border-slate-200 bg-white/92 px-4 py-3 backdrop-blur-sm'
-              }
-            >
-              <Heading size="6">
-                {selectedSessionLabel}
-              </Heading>
-            </header>
+            {dashboardOpen ? (
+              <Dashboard sessions={sessionItems} onClose={() => setDashboardOpen(false)} />
+            ) : usageOpen ? (
+              <UsagePanel
+                usageSession={usageSession}
+                sessionKey={sessionKey}
+                usageLoading={usageLoading}
+                usageError={usageError}
+                usageReport={usageReport}
+                usageMemory={usageMemory}
+                reflectorRuns={usageReflectorRuns}
+                injectionLogs={usageInjectionLogs}
+                onRefreshCurrent={() => void openUsage(sessionKey)}
+                onRefreshThis={() => void openUsage(usageSession || sessionKey)}
+                onClose={() => setUsageOpen(false)}
+              />
+            ) : configOpen ? (
+              <div className="flex h-full min-h-0 flex-col">
+                <header className="flex items-center justify-between border-b border-[var(--rc-border)] px-4 py-3">
+                  <div>
+                    <Text size="5" weight="bold">Settings</Text>
+                    <Text size="2" color="gray" className="ml-3">
+                      Channel-first configuration. Save writes to rayclaw.config.yaml. Restart is required.
+                    </Text>
+                  </div>
+                  <Flex gap="2">
+                    <Button size="1" variant="soft" onClick={() => void saveConfigChanges()}>Save</Button>
+                    <Button size="1" variant="ghost" onClick={() => setConfigOpen(false)}>Back to Chat</Button>
+                  </Flex>
+                </header>
+                <ScrollArea className="min-h-0 flex-1">
+                  <div className="p-4">
+                    {config ? (
+                      <Tabs.Root defaultValue="general" orientation="vertical" className="min-h-[600px]">
+                      <div className="grid grid-cols-[240px_minmax(0,1fr)] gap-4">
+                        <Card className="h-fit p-3" style={sectionCardStyle}>
+                          <Tabs.List className="rc-settings-tabs-list flex w-full flex-col gap-1">
+                            <Text size="1" color="gray" className="px-2 pt-1 uppercase tracking-wide">Runtime</Text>
+                            <Tabs.Trigger value="general" className="rc-settings-tab-trigger w-full justify-start rounded-lg px-3 py-2 text-[18px] leading-6 bg-transparent  hover:bg-white/8">⚙️  General</Tabs.Trigger>
+                            <Tabs.Trigger value="model" className="rc-settings-tab-trigger w-full justify-start rounded-lg px-3 py-2 text-[18px] leading-6 bg-transparent  hover:bg-white/8">🧠  Model</Tabs.Trigger>
 
-            <div
-              className="flex min-h-0 flex-1 flex-col bg-[var(--rc-bg-panel)]"
-            >
-              <div className="mx-auto w-full max-w-5xl px-3 pt-3">
-                {replayNotice ? (
-                  <Callout.Root color="orange" size="1" variant="soft">
-                    <Callout.Text>{replayNotice}</Callout.Text>
-                  </Callout.Root>
-                ) : null}
-                {error ? (
-                  <Callout.Root color="red" size="1" variant="soft" className={replayNotice ? 'mt-2' : ''}>
-                    <Callout.Text>{error}</Callout.Text>
-                  </Callout.Root>
-                ) : null}
-              </div>
+                            <Text size="1" color="gray" className="px-2 pt-3 uppercase tracking-wide">Channels</Text>
+                            <Tabs.Trigger value="telegram" className="rc-settings-tab-trigger w-full justify-start rounded-lg px-3 py-2 text-[18px] leading-6 bg-transparent  hover:bg-white/8">✈️  Telegram</Tabs.Trigger>
+                            <Tabs.Trigger value="discord" className="rc-settings-tab-trigger w-full justify-start rounded-lg px-3 py-2 text-[18px] leading-6 bg-transparent  hover:bg-white/8">💬  Discord</Tabs.Trigger>
+                            {DYNAMIC_CHANNELS.map((ch) => (
+                              <Tabs.Trigger key={ch.name} value={ch.name} className="rc-settings-tab-trigger w-full justify-start rounded-lg px-3 py-2 text-[18px] leading-6 bg-transparent  hover:bg-white/8">{ch.icon}  {ch.title}</Tabs.Trigger>
+                            ))}
 
-              <div className="min-h-0 flex-1 px-1 pb-1">
-                <ThreadPane key={runtimeKey} adapter={adapter} initialMessages={historySeed} runtimeKey={runtimeKey} />
-              </div>
-            </div>
-          </main>
-        </div>
-        <Dialog.Root open={configOpen} onOpenChange={setConfigOpen}>
-          <Dialog.Content maxWidth="1120px" className="overflow-hidden flex flex-col" style={{ width: "1120px", height: "760px", maxWidth: "1120px", maxHeight: "760px" }}>
-            <Dialog.Title>Settings</Dialog.Title>
-            <Dialog.Description size="2" mb="3">
-              Channel-first configuration. Save writes to rayclaw.config.yaml. Restart is required.
-            </Dialog.Description>
-            <div className="mt-2 min-h-0 flex-1">
-              {config ? (
-                <Tabs.Root defaultValue="general" orientation="vertical" className="h-full min-h-0">
-                <div className="grid h-full grid-cols-[240px_minmax(0,1fr)] gap-4">
-                  <Card className="h-full p-3" style={sectionCardStyle}>
-                    <Tabs.List className="rc-settings-tabs-list flex w-full flex-col gap-1">
-                      <Text size="1" color="gray" className="px-2 pt-1 uppercase tracking-wide">Runtime</Text>
-                      <Tabs.Trigger value="general" className="rc-settings-tab-trigger w-full justify-start rounded-lg px-3 py-2 text-[18px] leading-6 bg-transparent  hover:bg-white/8">⚙️  General</Tabs.Trigger>
-                      <Tabs.Trigger value="model" className="rc-settings-tab-trigger w-full justify-start rounded-lg px-3 py-2 text-[18px] leading-6 bg-transparent  hover:bg-white/8">🧠  Model</Tabs.Trigger>
+                            <Text size="1" color="gray" className="px-2 pt-3 uppercase tracking-wide">Integrations</Text>
+                            <Tabs.Trigger value="web" className="rc-settings-tab-trigger w-full justify-start rounded-lg px-3 py-2 text-[18px] leading-6 bg-transparent  hover:bg-white/8">🌐  Web</Tabs.Trigger>
+                          </Tabs.List>
+                        </Card>
 
-                      <Text size="1" color="gray" className="px-2 pt-3 uppercase tracking-wide">Channels</Text>
-                      <Tabs.Trigger value="telegram" className="rc-settings-tab-trigger w-full justify-start rounded-lg px-3 py-2 text-[18px] leading-6 bg-transparent  hover:bg-white/8">✈️  Telegram</Tabs.Trigger>
-                      <Tabs.Trigger value="discord" className="rc-settings-tab-trigger w-full justify-start rounded-lg px-3 py-2 text-[18px] leading-6 bg-transparent  hover:bg-white/8">💬  Discord</Tabs.Trigger>
-                      {DYNAMIC_CHANNELS.map((ch) => (
-                        <Tabs.Trigger key={ch.name} value={ch.name} className="rc-settings-tab-trigger w-full justify-start rounded-lg px-3 py-2 text-[18px] leading-6 bg-transparent  hover:bg-white/8">{ch.icon}  {ch.title}</Tabs.Trigger>
-                      ))}
-
-                      <Text size="1" color="gray" className="px-2 pt-3 uppercase tracking-wide">Integrations</Text>
-                      <Tabs.Trigger value="web" className="rc-settings-tab-trigger w-full justify-start rounded-lg px-3 py-2 text-[18px] leading-6 bg-transparent  hover:bg-white/8">🌐  Web</Tabs.Trigger>
-                    </Tabs.List>
-                  </Card>
-
-                  <div className="min-w-0 overflow-y-auto pr-1">
-                    <Tabs.Content value="general">
-                      <div className={sectionCardClass} style={sectionCardStyle}>
-                        <Text size="3" weight="bold">General</Text>
-                        <Text size="1" color="gray" className="mt-1 block">
-                          Runtime defaults used across all channels.
-                        </Text>
-                        <Text size="1" color="gray" className="mt-2 block">working_dir_isolation: chat = isolated workspace per chat; shared = one shared workspace.</Text>
-                        <Text size="1" color="gray" className="mt-1 block">max_tokens / max_tool_iterations / max_document_size_mb / memory_token_budget control response budget and tool loop safety.</Text>
-                        <div className="mt-4 space-y-3">
-                          <ConfigFieldCard label="working_dir_isolation" description={<>Use <code>chat</code> for per-chat isolation, or <code>shared</code> for one shared workspace.</>}>
-                            <select
-                              className="mt-2 w-full rounded-md border border-[color:var(--rc-border)] bg-transparent px-3 py-2 text-base text-[color:inherit] outline-none focus:border-[color:var(--rc-accent)]"
-                              value={normalizeWorkingDirIsolation(
-                                configDraft.working_dir_isolation || DEFAULT_CONFIG_VALUES.working_dir_isolation,
-                              )}
-                              onChange={(e) => setConfigField('working_dir_isolation', e.target.value)}
-                            >
-                              <option value="chat">chat (per-chat isolated workspace)</option>
-                              <option value="shared">shared (single shared workspace)</option>
-                            </select>
-                          </ConfigFieldCard>
-                          <ConfigFieldCard label="max_tokens" description={<>Maximum output tokens for one model response.</>}>
-                            <TextField.Root
-                              className="mt-2"
-                              value={String(configDraft.max_tokens || DEFAULT_CONFIG_VALUES.max_tokens)}
-                              onChange={(e) => setConfigField('max_tokens', e.target.value)}
-                              placeholder="8192"
-                            />
-                          </ConfigFieldCard>
-                          <ConfigFieldCard label="max_tool_iterations" description={<>Upper bound for tool loop iterations in one request.</>}>
-                            <TextField.Root
-                              className="mt-2"
-                              value={String(configDraft.max_tool_iterations || DEFAULT_CONFIG_VALUES.max_tool_iterations)}
-                              onChange={(e) => setConfigField('max_tool_iterations', e.target.value)}
-                              placeholder="100"
-                            />
-                          </ConfigFieldCard>
-                          <ConfigFieldCard label="max_document_size_mb" description={<>Maximum uploaded file size in MB.</>}>
-                            <TextField.Root
-                              className="mt-2"
-                              value={String(configDraft.max_document_size_mb || DEFAULT_CONFIG_VALUES.max_document_size_mb)}
-                              onChange={(e) => setConfigField('max_document_size_mb', e.target.value)}
-                              placeholder="100"
-                            />
-                          </ConfigFieldCard>
-                          <ConfigFieldCard label="memory_token_budget" description={<>Estimated token budget for injecting structured memories into the system prompt.</>}>
-                            <TextField.Root
-                              className="mt-2"
-                              type="number"
-                              value={String(configDraft.memory_token_budget || DEFAULT_CONFIG_VALUES.memory_token_budget)}
-                              onChange={(e) => setConfigField('memory_token_budget', e.target.value)}
-                              placeholder="1500"
-                            />
-                          </ConfigFieldCard>
-                        </div>
-                        <div className="mt-4 grid grid-cols-1 gap-3">
-                          <ConfigToggleCard
-                            label="show_thinking"
-                            description={<>Show intermediate reasoning text in responses.</>}
-                            checked={Boolean(configDraft.show_thinking)}
-                            onCheckedChange={(checked) => setConfigField('show_thinking', checked)}
-                            className={toggleCardClass}
-                            style={toggleCardStyle}
-                          />
-                          <ConfigToggleCard
-                            label="web_enabled"
-                            description={<>Enable built-in Web UI and API endpoint.</>}
-                            checked={Boolean(configDraft.web_enabled)}
-                            onCheckedChange={(checked) => setConfigField('web_enabled', checked)}
-                            className={toggleCardClass}
-                            style={toggleCardStyle}
-                          />
-                          <ConfigToggleCard
-                            label="reflector_enabled"
-                            description={<>Periodically extract structured memories from conversations in the background.</>}
-                            checked={configDraft.reflector_enabled !== false}
-                            onCheckedChange={(checked) => setConfigField('reflector_enabled', checked)}
-                            className={toggleCardClass}
-                            style={toggleCardStyle}
-                          />
-                        </div>
-                        <div className="mt-4 space-y-3">
-                          <ConfigFieldCard label="reflector_interval_mins" description={<>How often (in minutes) the memory reflector runs. Requires restart.</>}>
-                            <TextField.Root
-                              className="mt-2"
-                              type="number"
-                              value={String(configDraft.reflector_interval_mins ?? DEFAULT_CONFIG_VALUES.reflector_interval_mins)}
-                              onChange={(e) => setConfigField('reflector_interval_mins', e.target.value)}
-                              placeholder="15"
-                            />
-                          </ConfigFieldCard>
-                        </div>
-                      </div>
-                    </Tabs.Content>
-
-                    <Tabs.Content value="model">
-                      <div className={sectionCardClass} style={sectionCardStyle}>
-                        <Text size="3" weight="bold">Model</Text>
-                        <Text size="1" color="gray" className="mt-1 block">
-                          LLM provider and API settings.
-                        </Text>
-                        <Text size="1" color="gray" className="mt-2 block">llm_provider selects routing preset; model is the exact model id sent to provider API.</Text>
-                        <Text size="1" color="gray" className="mt-1 block">For custom providers set <code>llm_base_url</code>. For <code>openai-codex</code>, configure auth/provider in <code>~/.codex/auth.json</code> and <code>~/.codex/config.toml</code> (this form ignores <code>api_key</code>/<code>llm_base_url</code>). <code>ollama</code> can leave <code>api_key</code> empty.</Text>
-                        <div className="mt-4 space-y-3">
-                          <ConfigFieldCard label="llm_provider" description={<>Select provider preset for request routing and defaults.</>}>
-                            <div className="mt-2">
-                              <Select.Root
-                                value={String(configDraft.llm_provider || DEFAULT_CONFIG_VALUES.llm_provider)}
-                                onValueChange={(value) => setConfigField('llm_provider', value)}
-                              >
-                                <Select.Trigger className="w-full rc-select-trigger-full" placeholder="Select provider" />
-                                <Select.Content>
-                                  {providerOptions.map((provider) => (
-                                    <Select.Item key={provider} value={provider}>
-                                      {provider}
-                                    </Select.Item>
-                                  ))}
-                                </Select.Content>
-                              </Select.Root>
-                            </div>
-                          </ConfigFieldCard>
-
-                          <ConfigFieldCard label="model" description={<>Exact model id to use for requests.</>}>
-                            <TextField.Root
-                              className="mt-2"
-                              value={String(configDraft.model || defaultModelForProvider(String(configDraft.llm_provider || DEFAULT_CONFIG_VALUES.llm_provider)))}
-                              onChange={(e) => setConfigField('model', e.target.value)}
-                              placeholder="claude-sonnet-4-5-20250929"
-                            />
-                            {modelOptions.length > 0 ? (
-                              <Text size="1" color="gray" className="mt-2 block">Suggested: {modelOptions.join(' / ')}</Text>
-                            ) : null}
-                          </ConfigFieldCard>
-
-                          {currentProvider === 'custom' ? (
-                            <ConfigFieldCard label="llm_base_url" description={<>Base URL for OpenAI-compatible custom provider endpoint.</>}>
-                              <TextField.Root
-                                className="mt-2"
-                                value={String(configDraft.llm_base_url || '')}
-                                onChange={(e) => setConfigField('llm_base_url', e.target.value)}
-                                placeholder="https://api.example.com/v1"
-                              />
-                          </ConfigFieldCard>
-                          ) : null}
-
-                          <ConfigFieldCard
-                            label="api_key"
-                            description={
-                              currentProvider === 'openai-codex'
-                                ? <>For <code>openai-codex</code>, this field is ignored. Configure <code>~/.codex/auth.json</code> instead.</>
-                                : <>Provider API key. Leave blank to keep current secret unchanged.</>
-                            }
-                          >
-                            <TextField.Root
-                              className="mt-2"
-                              value={String(configDraft.api_key || '')}
-                              onChange={(e) => setConfigField('api_key', e.target.value)}
-                              placeholder={currentProvider === 'openai-codex' ? '(ignored for openai-codex)' : 'sk-...'}
-                            />
-                          </ConfigFieldCard>
-                        </div>
-                      </div>
-                      <div className={`${sectionCardClass} mt-4`} style={sectionCardStyle}>
-                        <Text size="3" weight="bold">Embedding</Text>
-                        <Text size="1" color="gray" className="mt-1 block">
-                          Optional embedding runtime settings for semantic memory (requires sqlite-vec build).
-                        </Text>
-                        <div className="mt-4 space-y-3">
-                          <ConfigFieldCard label="embedding_provider" description={<>Optional runtime embedding provider: <code>openai</code> or <code>ollama</code>.</>}>
-                            <TextField.Root
-                              className="mt-2"
-                              value={String(configDraft.embedding_provider || '')}
-                              onChange={(e) => setConfigField('embedding_provider', e.target.value)}
-                              placeholder="openai"
-                            />
-                          </ConfigFieldCard>
-                          <ConfigFieldCard label="embedding_api_key" description={<>Optional embedding API key. Leave blank to keep unchanged.</>}>
-                            <TextField.Root
-                              className="mt-2"
-                              value={String(configDraft.embedding_api_key || '')}
-                              onChange={(e) => setConfigField('embedding_api_key', e.target.value)}
-                              placeholder="sk-..."
-                            />
-                          </ConfigFieldCard>
-                          <ConfigFieldCard label="embedding_base_url" description={<>Optional embedding base URL override.</>}>
-                            <TextField.Root
-                              className="mt-2"
-                              value={String(configDraft.embedding_base_url || '')}
-                              onChange={(e) => setConfigField('embedding_base_url', e.target.value)}
-                              placeholder="https://api.openai.com/v1"
-                            />
-                          </ConfigFieldCard>
-                          <ConfigFieldCard label="embedding_model" description={<>Optional embedding model id.</>}>
-                            <TextField.Root
-                              className="mt-2"
-                              value={String(configDraft.embedding_model || '')}
-                              onChange={(e) => setConfigField('embedding_model', e.target.value)}
-                              placeholder="text-embedding-3-small"
-                            />
-                          </ConfigFieldCard>
-                          <ConfigFieldCard label="embedding_dim" description={<>Optional embedding vector dimension.</>}>
-                            <TextField.Root
-                              className="mt-2"
-                              type="number"
-                              value={String(configDraft.embedding_dim || '')}
-                              onChange={(e) => setConfigField('embedding_dim', e.target.value)}
-                              placeholder="1536"
-                            />
-                          </ConfigFieldCard>
-                        </div>
-                      </div>
-                    </Tabs.Content>
-
-                    <Tabs.Content value="telegram">
-                      <div className={sectionCardClass} style={sectionCardStyle}>
-                        <Text size="3" weight="bold">Telegram</Text>
-                        <ConfigStepsCard
-                          steps={[
-                            <>Open Telegram and chat with <code>@BotFather</code>.</>,
-                            <>Run <code>/newbot</code>, set name and username (must end with <code>bot</code>).</>,
-                            <>Copy the bot token and paste below.</>,
-                            <>Set <code>bot_username</code> without <code>@</code>.</>,
-                            <>In groups, mention the bot to trigger replies.</>,
-                          ]}
-                        />
-                        <Text size="1" color="gray" className="mt-3 block">
-                          Required: bot token and username. Leave token unchanged if already configured.
-                        </Text>
-                        <div className="mt-4 space-y-3">
-                          <ConfigFieldCard label="telegram_bot_token" description={<>BotFather token for sending and receiving Telegram messages. Leave blank to keep current secret unchanged.</>}>
-                            <TextField.Root
-                              className="mt-2"
-                              value={String(configDraft.telegram_bot_token || '')}
-                              onChange={(e) => setConfigField('telegram_bot_token', e.target.value)}
-                              placeholder="123456789:AA..."
-                            />
-                          </ConfigFieldCard>
-                          <ConfigFieldCard label="bot_username" description={<>Telegram bot username without <code>@</code>, used for group mention trigger.</>}>
-                            <TextField.Root
-                              className="mt-2"
-                              value={String(configDraft.bot_username || '')}
-                              onChange={(e) => setConfigField('bot_username', e.target.value)}
-                              placeholder="my_rayclaw_bot"
-                            />
-                          </ConfigFieldCard>
-                        </div>
-                      </div>
-                    </Tabs.Content>
-
-                    <Tabs.Content value="discord">
-                      <div className={sectionCardClass} style={sectionCardStyle}>
-                        <Text size="3" weight="bold">Discord</Text>
-                        <ConfigStepsCard
-                          steps={[
-                            <>Open Discord Developer Portal and create an application + bot.</>,
-                            <>Enable <code>Message Content Intent</code> under Bot settings.</>,
-                            <>Invite bot with scopes/permissions: bot, View Channels, Send Messages, Read Message History.</>,
-                            <>Paste bot token below.</>,
-                            <>Optional: limit handling to specific channel IDs.</>,
-                          ]}
-                        />
-                        <Text size="1" color="gray" className="mt-3 block">
-                          Required: bot token. Optional: restrict handling to listed channel IDs.
-                        </Text>
-                        <div className="mt-4 space-y-3">
-                          <ConfigFieldCard label="discord_bot_token" description={<>Discord bot token from Developer Portal. Leave blank to keep current secret unchanged.</>}>
-                            <TextField.Root
-                              className="mt-2"
-                              value={String(configDraft.discord_bot_token || '')}
-                              onChange={(e) => setConfigField('discord_bot_token', e.target.value)}
-                              placeholder="MTAx..."
-                            />
-                          </ConfigFieldCard>
-                          <ConfigFieldCard label="discord_allowed_channels" description={<>Optional allowlist. Only listed channel IDs can trigger the bot.</>}>
-                            <TextField.Root
-                              className="mt-2"
-                              value={String(configDraft.discord_allowed_channels_csv || '')}
-                              onChange={(e) => setConfigField('discord_allowed_channels_csv', e.target.value)}
-                              placeholder="1234567890, 9876543210"
-                            />
-                          </ConfigFieldCard>
-                        </div>
-                      </div>
-                    </Tabs.Content>
-
-                    {DYNAMIC_CHANNELS.map((ch) => (
-                      <Tabs.Content key={ch.name} value={ch.name}>
-                        <div className={sectionCardClass} style={sectionCardStyle}>
-                          <Text size="3" weight="bold">{ch.title}</Text>
-                          <ConfigStepsCard steps={ch.steps.map((s, i) => <span key={i}>{s}</span>)} />
-                          <Text size="1" color="gray" className="mt-3 block">{ch.hint}</Text>
-                          <div className="mt-4 space-y-3">
-                            {ch.fields.map((f) => {
-                              const stateKey = `${ch.name}__${f.yamlKey}`
-                              return (
-                                <ConfigFieldCard key={stateKey} label={f.label} description={<>{f.description}</>}>
+                        <div className="min-w-0 pr-1">
+                          <Tabs.Content value="general">
+                            <div className={sectionCardClass} style={sectionCardStyle}>
+                              <Text size="3" weight="bold">General</Text>
+                              <Text size="1" color="gray" className="mt-1 block">
+                                Runtime defaults used across all channels.
+                              </Text>
+                              <Text size="1" color="gray" className="mt-2 block">working_dir_isolation: chat = isolated workspace per chat; shared = one shared workspace.</Text>
+                              <Text size="1" color="gray" className="mt-1 block">max_tokens / max_tool_iterations / max_document_size_mb / memory_token_budget control response budget and tool loop safety.</Text>
+                              <div className="mt-4 space-y-3">
+                                <ConfigFieldCard label="working_dir_isolation" description={<>Use <code>chat</code> for per-chat isolation, or <code>shared</code> for one shared workspace.</>}>
+                                  <select
+                                    className="mt-2 w-full rounded-md border border-[color:var(--rc-border)] bg-transparent px-3 py-2 text-base text-[color:inherit] outline-none focus:border-[color:var(--rc-accent)]"
+                                    value={normalizeWorkingDirIsolation(
+                                      configDraft.working_dir_isolation || DEFAULT_CONFIG_VALUES.working_dir_isolation,
+                                    )}
+                                    onChange={(e) => setConfigField('working_dir_isolation', e.target.value)}
+                                  >
+                                    <option value="chat">chat (per-chat isolated workspace)</option>
+                                    <option value="shared">shared (single shared workspace)</option>
+                                  </select>
+                                </ConfigFieldCard>
+                                <ConfigFieldCard label="max_tokens" description={<>Maximum output tokens for one model response.</>}>
                                   <TextField.Root
                                     className="mt-2"
-                                    value={String(configDraft[stateKey] || '')}
-                                    onChange={(e) => setConfigField(stateKey, e.target.value)}
-                                    placeholder={f.placeholder}
+                                    value={String(configDraft.max_tokens || DEFAULT_CONFIG_VALUES.max_tokens)}
+                                    onChange={(e) => setConfigField('max_tokens', e.target.value)}
+                                    placeholder="8192"
                                   />
                                 </ConfigFieldCard>
-                              )
-                            })}
-                          </div>
-                        </div>
-                      </Tabs.Content>
-                    ))}
+                                <ConfigFieldCard label="max_tool_iterations" description={<>Upper bound for tool loop iterations in one request.</>}>
+                                  <TextField.Root
+                                    className="mt-2"
+                                    value={String(configDraft.max_tool_iterations || DEFAULT_CONFIG_VALUES.max_tool_iterations)}
+                                    onChange={(e) => setConfigField('max_tool_iterations', e.target.value)}
+                                    placeholder="100"
+                                  />
+                                </ConfigFieldCard>
+                                <ConfigFieldCard label="max_document_size_mb" description={<>Maximum uploaded file size in MB.</>}>
+                                  <TextField.Root
+                                    className="mt-2"
+                                    value={String(configDraft.max_document_size_mb || DEFAULT_CONFIG_VALUES.max_document_size_mb)}
+                                    onChange={(e) => setConfigField('max_document_size_mb', e.target.value)}
+                                    placeholder="100"
+                                  />
+                                </ConfigFieldCard>
+                                <ConfigFieldCard label="memory_token_budget" description={<>Estimated token budget for injecting structured memories into the system prompt.</>}>
+                                  <TextField.Root
+                                    className="mt-2"
+                                    type="number"
+                                    value={String(configDraft.memory_token_budget || DEFAULT_CONFIG_VALUES.memory_token_budget)}
+                                    onChange={(e) => setConfigField('memory_token_budget', e.target.value)}
+                                    placeholder="1500"
+                                  />
+                                </ConfigFieldCard>
+                              </div>
+                              <div className="mt-4 grid grid-cols-1 gap-3">
+                                <ConfigToggleCard
+                                  label="show_thinking"
+                                  description={<>Show intermediate reasoning text in responses.</>}
+                                  checked={Boolean(configDraft.show_thinking)}
+                                  onCheckedChange={(checked) => setConfigField('show_thinking', checked)}
+                                  className={toggleCardClass}
+                                  style={toggleCardStyle}
+                                />
+                                <ConfigToggleCard
+                                  label="web_enabled"
+                                  description={<>Enable built-in Web UI and API endpoint.</>}
+                                  checked={Boolean(configDraft.web_enabled)}
+                                  onCheckedChange={(checked) => setConfigField('web_enabled', checked)}
+                                  className={toggleCardClass}
+                                  style={toggleCardStyle}
+                                />
+                                <ConfigToggleCard
+                                  label="reflector_enabled"
+                                  description={<>Periodically extract structured memories from conversations in the background.</>}
+                                  checked={configDraft.reflector_enabled !== false}
+                                  onCheckedChange={(checked) => setConfigField('reflector_enabled', checked)}
+                                  className={toggleCardClass}
+                                  style={toggleCardStyle}
+                                />
+                              </div>
+                              <div className="mt-4 space-y-3">
+                                <ConfigFieldCard label="reflector_interval_mins" description={<>How often (in minutes) the memory reflector runs. Requires restart.</>}>
+                                  <TextField.Root
+                                    className="mt-2"
+                                    type="number"
+                                    value={String(configDraft.reflector_interval_mins ?? DEFAULT_CONFIG_VALUES.reflector_interval_mins)}
+                                    onChange={(e) => setConfigField('reflector_interval_mins', e.target.value)}
+                                    placeholder="15"
+                                  />
+                                </ConfigFieldCard>
+                              </div>
+                            </div>
+                          </Tabs.Content>
 
-                    <Tabs.Content value="web">
-                      <div className={sectionCardClass} style={sectionCardStyle}>
-                        <Text size="3" weight="bold">Web</Text>
-                        <ConfigStepsCard
-                          steps={[
-                            <>Keep <code>web_enabled</code> on for local UI access.</>,
-                            <>Use <code>127.0.0.1</code> for local-only host, or set LAN host explicitly.</>,
-                            <>Choose web port (default <code>10961</code>).</>,
-                          ]}
-                        />
-                        <Text size="1" color="gray" className="mt-3 block">
-                          For local only, keep host as 127.0.0.1. Use 0.0.0.0 only behind trusted network controls.
-                        </Text>
-                        <div className="mt-4 space-y-3">
-                          <ConfigFieldCard label="web_host" description={<>Use <code>127.0.0.1</code> for local-only. Use <code>0.0.0.0</code> only when intentionally exposing on LAN.</>}>
-                            <TextField.Root
-                              className="mt-2"
-                              value={String(configDraft.web_host || DEFAULT_CONFIG_VALUES.web_host)}
-                              onChange={(e) => setConfigField('web_host', e.target.value)}
-                              placeholder="127.0.0.1"
-                            />
-                          </ConfigFieldCard>
-                          <ConfigFieldCard label="web_port" description={<>HTTP port for Web UI and API endpoint.</>}>
-                            <TextField.Root
-                              className="mt-2"
-                              value={String(configDraft.web_port || DEFAULT_CONFIG_VALUES.web_port)}
-                              onChange={(e) => setConfigField('web_port', e.target.value)}
-                              placeholder="10961"
-                            />
-                          </ConfigFieldCard>
+                          <Tabs.Content value="model">
+                            <div className={sectionCardClass} style={sectionCardStyle}>
+                              <Text size="3" weight="bold">Model</Text>
+                              <Text size="1" color="gray" className="mt-1 block">
+                                LLM provider and API settings.
+                              </Text>
+                              <Text size="1" color="gray" className="mt-2 block">llm_provider selects routing preset; model is the exact model id sent to provider API.</Text>
+                              <Text size="1" color="gray" className="mt-1 block">For custom providers set <code>llm_base_url</code>. For <code>openai-codex</code>, configure auth/provider in <code>~/.codex/auth.json</code> and <code>~/.codex/config.toml</code> (this form ignores <code>api_key</code>/<code>llm_base_url</code>). <code>ollama</code> can leave <code>api_key</code> empty.</Text>
+                              <div className="mt-4 space-y-3">
+                                <ConfigFieldCard label="llm_provider" description={<>Select provider preset for request routing and defaults.</>}>
+                                  <div className="mt-2">
+                                    <Select.Root
+                                      value={String(configDraft.llm_provider || DEFAULT_CONFIG_VALUES.llm_provider)}
+                                      onValueChange={(value) => setConfigField('llm_provider', value)}
+                                    >
+                                      <Select.Trigger className="w-full rc-select-trigger-full" placeholder="Select provider" />
+                                      <Select.Content>
+                                        {providerOptions.map((provider) => (
+                                          <Select.Item key={provider} value={provider}>
+                                            {provider}
+                                          </Select.Item>
+                                        ))}
+                                      </Select.Content>
+                                    </Select.Root>
+                                  </div>
+                                </ConfigFieldCard>
+
+                                <ConfigFieldCard label="model" description={<>Exact model id to use for requests.</>}>
+                                  <TextField.Root
+                                    className="mt-2"
+                                    value={String(configDraft.model || defaultModelForProvider(String(configDraft.llm_provider || DEFAULT_CONFIG_VALUES.llm_provider)))}
+                                    onChange={(e) => setConfigField('model', e.target.value)}
+                                    placeholder="claude-sonnet-4-5-20250929"
+                                  />
+                                  {modelOptions.length > 0 ? (
+                                    <Text size="1" color="gray" className="mt-2 block">Suggested: {modelOptions.join(' / ')}</Text>
+                                  ) : null}
+                                </ConfigFieldCard>
+
+                                {currentProvider === 'custom' ? (
+                                  <ConfigFieldCard label="llm_base_url" description={<>Base URL for OpenAI-compatible custom provider endpoint.</>}>
+                                    <TextField.Root
+                                      className="mt-2"
+                                      value={String(configDraft.llm_base_url || '')}
+                                      onChange={(e) => setConfigField('llm_base_url', e.target.value)}
+                                      placeholder="https://api.example.com/v1"
+                                    />
+                                </ConfigFieldCard>
+                                ) : null}
+
+                                <ConfigFieldCard
+                                  label="api_key"
+                                  description={
+                                    currentProvider === 'openai-codex'
+                                      ? <>For <code>openai-codex</code>, this field is ignored. Configure <code>~/.codex/auth.json</code> instead.</>
+                                      : <>Provider API key. Leave blank to keep current secret unchanged.</>
+                                  }
+                                >
+                                  <TextField.Root
+                                    className="mt-2"
+                                    value={String(configDraft.api_key || '')}
+                                    onChange={(e) => setConfigField('api_key', e.target.value)}
+                                    placeholder={currentProvider === 'openai-codex' ? '(ignored for openai-codex)' : 'sk-...'}
+                                  />
+                                </ConfigFieldCard>
+                              </div>
+                            </div>
+                            <div className={`${sectionCardClass} mt-4`} style={sectionCardStyle}>
+                              <Text size="3" weight="bold">Embedding</Text>
+                              <Text size="1" color="gray" className="mt-1 block">
+                                Optional embedding runtime settings for semantic memory (requires sqlite-vec build).
+                              </Text>
+                              <div className="mt-4 space-y-3">
+                                <ConfigFieldCard label="embedding_provider" description={<>Optional runtime embedding provider: <code>openai</code> or <code>ollama</code>.</>}>
+                                  <TextField.Root
+                                    className="mt-2"
+                                    value={String(configDraft.embedding_provider || '')}
+                                    onChange={(e) => setConfigField('embedding_provider', e.target.value)}
+                                    placeholder="openai"
+                                  />
+                                </ConfigFieldCard>
+                                <ConfigFieldCard label="embedding_api_key" description={<>Optional embedding API key. Leave blank to keep unchanged.</>}>
+                                  <TextField.Root
+                                    className="mt-2"
+                                    value={String(configDraft.embedding_api_key || '')}
+                                    onChange={(e) => setConfigField('embedding_api_key', e.target.value)}
+                                    placeholder="sk-..."
+                                  />
+                                </ConfigFieldCard>
+                                <ConfigFieldCard label="embedding_base_url" description={<>Optional embedding base URL override.</>}>
+                                  <TextField.Root
+                                    className="mt-2"
+                                    value={String(configDraft.embedding_base_url || '')}
+                                    onChange={(e) => setConfigField('embedding_base_url', e.target.value)}
+                                    placeholder="https://api.openai.com/v1"
+                                  />
+                                </ConfigFieldCard>
+                                <ConfigFieldCard label="embedding_model" description={<>Optional embedding model id.</>}>
+                                  <TextField.Root
+                                    className="mt-2"
+                                    value={String(configDraft.embedding_model || '')}
+                                    onChange={(e) => setConfigField('embedding_model', e.target.value)}
+                                    placeholder="text-embedding-3-small"
+                                  />
+                                </ConfigFieldCard>
+                                <ConfigFieldCard label="embedding_dim" description={<>Optional embedding vector dimension.</>}>
+                                  <TextField.Root
+                                    className="mt-2"
+                                    type="number"
+                                    value={String(configDraft.embedding_dim || '')}
+                                    onChange={(e) => setConfigField('embedding_dim', e.target.value)}
+                                    placeholder="1536"
+                                  />
+                                </ConfigFieldCard>
+                              </div>
+                            </div>
+                          </Tabs.Content>
+
+                          <Tabs.Content value="telegram">
+                            <div className={sectionCardClass} style={sectionCardStyle}>
+                              <Text size="3" weight="bold">Telegram</Text>
+                              <ConfigStepsCard
+                                steps={[
+                                  <>Open Telegram and chat with <code>@BotFather</code>.</>,
+                                  <>Run <code>/newbot</code>, set name and username (must end with <code>bot</code>).</>,
+                                  <>Copy the bot token and paste below.</>,
+                                  <>Set <code>bot_username</code> without <code>@</code>.</>,
+                                  <>In groups, mention the bot to trigger replies.</>,
+                                ]}
+                              />
+                              <Text size="1" color="gray" className="mt-3 block">
+                                Required: bot token and username. Leave token unchanged if already configured.
+                              </Text>
+                              <div className="mt-4 space-y-3">
+                                <ConfigFieldCard label="telegram_bot_token" description={<>BotFather token for sending and receiving Telegram messages. Leave blank to keep current secret unchanged.</>}>
+                                  <TextField.Root
+                                    className="mt-2"
+                                    value={String(configDraft.telegram_bot_token || '')}
+                                    onChange={(e) => setConfigField('telegram_bot_token', e.target.value)}
+                                    placeholder="123456789:AA..."
+                                  />
+                                </ConfigFieldCard>
+                                <ConfigFieldCard label="bot_username" description={<>Telegram bot username without <code>@</code>, used for group mention trigger.</>}>
+                                  <TextField.Root
+                                    className="mt-2"
+                                    value={String(configDraft.bot_username || '')}
+                                    onChange={(e) => setConfigField('bot_username', e.target.value)}
+                                    placeholder="my_rayclaw_bot"
+                                  />
+                                </ConfigFieldCard>
+                              </div>
+                            </div>
+                          </Tabs.Content>
+
+                          <Tabs.Content value="discord">
+                            <div className={sectionCardClass} style={sectionCardStyle}>
+                              <Text size="3" weight="bold">Discord</Text>
+                              <ConfigStepsCard
+                                steps={[
+                                  <>Open Discord Developer Portal and create an application + bot.</>,
+                                  <>Enable <code>Message Content Intent</code> under Bot settings.</>,
+                                  <>Invite bot with scopes/permissions: bot, View Channels, Send Messages, Read Message History.</>,
+                                  <>Paste bot token below.</>,
+                                  <>Optional: limit handling to specific channel IDs.</>,
+                                ]}
+                              />
+                              <Text size="1" color="gray" className="mt-3 block">
+                                Required: bot token. Optional: restrict handling to listed channel IDs.
+                              </Text>
+                              <div className="mt-4 space-y-3">
+                                <ConfigFieldCard label="discord_bot_token" description={<>Discord bot token from Developer Portal. Leave blank to keep current secret unchanged.</>}>
+                                  <TextField.Root
+                                    className="mt-2"
+                                    value={String(configDraft.discord_bot_token || '')}
+                                    onChange={(e) => setConfigField('discord_bot_token', e.target.value)}
+                                    placeholder="MTAx..."
+                                  />
+                                </ConfigFieldCard>
+                                <ConfigFieldCard label="discord_allowed_channels" description={<>Optional allowlist. Only listed channel IDs can trigger the bot.</>}>
+                                  <TextField.Root
+                                    className="mt-2"
+                                    value={String(configDraft.discord_allowed_channels_csv || '')}
+                                    onChange={(e) => setConfigField('discord_allowed_channels_csv', e.target.value)}
+                                    placeholder="1234567890, 9876543210"
+                                  />
+                                </ConfigFieldCard>
+                              </div>
+                            </div>
+                          </Tabs.Content>
+
+                          {DYNAMIC_CHANNELS.map((ch) => (
+                            <Tabs.Content key={ch.name} value={ch.name}>
+                              <div className={sectionCardClass} style={sectionCardStyle}>
+                                <Text size="3" weight="bold">{ch.title}</Text>
+                                <ConfigStepsCard steps={ch.steps.map((s, i) => <span key={i}>{s}</span>)} />
+                                <Text size="1" color="gray" className="mt-3 block">{ch.hint}</Text>
+                                <div className="mt-4 space-y-3">
+                                  {ch.fields.map((f) => {
+                                    const stateKey = `${ch.name}__${f.yamlKey}`
+                                    return (
+                                      <ConfigFieldCard key={stateKey} label={f.label} description={<>{f.description}</>}>
+                                        <TextField.Root
+                                          className="mt-2"
+                                          value={String(configDraft[stateKey] || '')}
+                                          onChange={(e) => setConfigField(stateKey, e.target.value)}
+                                          placeholder={f.placeholder}
+                                        />
+                                      </ConfigFieldCard>
+                                    )
+                                  })}
+                                </div>
+                              </div>
+                            </Tabs.Content>
+                          ))}
+
+                          <Tabs.Content value="web">
+                            <div className={sectionCardClass} style={sectionCardStyle}>
+                              <Text size="3" weight="bold">Web</Text>
+                              <ConfigStepsCard
+                                steps={[
+                                  <>Keep <code>web_enabled</code> on for local UI access.</>,
+                                  <>Use <code>127.0.0.1</code> for local-only host, or set LAN host explicitly.</>,
+                                  <>Choose web port (default <code>10961</code>).</>,
+                                ]}
+                              />
+                              <Text size="1" color="gray" className="mt-3 block">
+                                For local only, keep host as 127.0.0.1. Use 0.0.0.0 only behind trusted network controls.
+                              </Text>
+                              <div className="mt-4 space-y-3">
+                                <ConfigFieldCard label="web_host" description={<>Use <code>127.0.0.1</code> for local-only. Use <code>0.0.0.0</code> only when intentionally exposing on LAN.</>}>
+                                  <TextField.Root
+                                    className="mt-2"
+                                    value={String(configDraft.web_host || DEFAULT_CONFIG_VALUES.web_host)}
+                                    onChange={(e) => setConfigField('web_host', e.target.value)}
+                                    placeholder="127.0.0.1"
+                                  />
+                                </ConfigFieldCard>
+                                <ConfigFieldCard label="web_port" description={<>HTTP port for Web UI and API endpoint.</>}>
+                                  <TextField.Root
+                                    className="mt-2"
+                                    value={String(configDraft.web_port || DEFAULT_CONFIG_VALUES.web_port)}
+                                    onChange={(e) => setConfigField('web_port', e.target.value)}
+                                    placeholder="10961"
+                                  />
+                                </ConfigFieldCard>
+                              </div>
+                            </div>
+                          </Tabs.Content>
+
                         </div>
                       </div>
-                    </Tabs.Content>
+                      </Tabs.Root>
+                    ) : (
+                      <Text size="2" color="gray">Loading...</Text>
+                    )}
+                    {saveStatus ? (
+                      <div className="mt-4">
+                        <Text size="2" color={saveStatus.startsWith('Save failed') ? 'red' : 'green'}>
+                          {saveStatus}
+                        </Text>
+                      </div>
+                    ) : null}
+                  </div>
+                </ScrollArea>
+              </div>
+            ) : (
+              <>
+                <header
+                  className={
+                    appearance === 'dark'
+                      ? 'sticky top-0 z-10 border-b border-[color:var(--rc-border)] bg-[color:var(--rc-bg-panel)]/95 px-4 py-3 backdrop-blur-sm'
+                      : 'sticky top-0 z-10 border-b border-slate-200 bg-white/92 px-4 py-3 backdrop-blur-sm'
+                  }
+                >
+                  <Heading size="6">
+                    {selectedSessionLabel}
+                  </Heading>
+                </header>
 
+                <div
+                  className="flex min-h-0 flex-1 flex-col bg-[var(--rc-bg-panel)]"
+                >
+                  <div className="mx-auto w-full max-w-5xl px-3 pt-3">
+                    {replayNotice ? (
+                      <Callout.Root color="orange" size="1" variant="soft">
+                        <Callout.Text>{replayNotice}</Callout.Text>
+                      </Callout.Root>
+                    ) : null}
+                    {error ? (
+                      <Callout.Root color="red" size="1" variant="soft" className={replayNotice ? 'mt-2' : ''}>
+                        <Callout.Text>{error}</Callout.Text>
+                      </Callout.Root>
+                    ) : null}
+                  </div>
+
+                  <div className="min-h-0 flex-1 px-1 pb-1">
+                    <ThreadPane key={runtimeKey} adapter={adapter} initialMessages={historySeed} runtimeKey={runtimeKey} />
                   </div>
                 </div>
-                </Tabs.Root>
-              ) : (
-                <Text size="2" color="gray">Loading...</Text>
-              )}
-            </div>
-
-            <div className="mt-3 flex items-center justify-between border-t border-[color:var(--rc-border)] pt-3">
-              {saveStatus ? (
-                <Text size="2" color={saveStatus.startsWith('Save failed') ? 'red' : 'green'}>
-                  {saveStatus}
-                </Text>
-              ) : (
-                <span />
-              )}
-              <Flex justify="end" gap="2">
-                <Dialog.Close>
-                  <Button variant="soft">Close</Button>
-                </Dialog.Close>
-                <Button onClick={() => void saveConfigChanges()}>Save</Button>
-              </Flex>
-            </div>
-          </Dialog.Content>
-        </Dialog.Root>
-        <UsagePanel
-          open={usageOpen}
-          onOpenChange={setUsageOpen}
-          usageSession={usageSession}
-          sessionKey={sessionKey}
-          usageLoading={usageLoading}
-          usageError={usageError}
-          usageReport={usageReport}
-          usageMemory={usageMemory}
-          reflectorRuns={usageReflectorRuns}
-          injectionLogs={usageInjectionLogs}
-          onRefreshCurrent={() => void openUsage(sessionKey)}
-          onRefreshThis={() => void openUsage(usageSession || sessionKey)}
-        />
+              </>
+            )}
+          </main>
+        </div>
       </div>
     </Theme>
   )

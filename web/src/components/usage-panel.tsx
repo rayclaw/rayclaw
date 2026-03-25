@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react'
-import { Button, Callout, Card, Dialog, Flex, Text } from '@radix-ui/themes'
+import { Button, Callout, Card, Flex, ScrollArea, Text } from '@radix-ui/themes'
 
 export type MemoryObservability = {
   total: number
@@ -30,8 +30,6 @@ export type InjectionLogPoint = {
 }
 
 type UsagePanelProps = {
-  open: boolean
-  onOpenChange: (open: boolean) => void
   usageSession: string
   sessionKey: string
   usageLoading: boolean
@@ -42,6 +40,7 @@ type UsagePanelProps = {
   injectionLogs: InjectionLogPoint[]
   onRefreshCurrent: () => void
   onRefreshThis: () => void
+  onClose: () => void
 }
 
 function fmtInt(value: number): string {
@@ -124,8 +123,6 @@ function TrendRow({
 
 export function UsagePanel(props: UsagePanelProps) {
   const {
-    open,
-    onOpenChange,
     usageSession,
     sessionKey,
     usageLoading,
@@ -136,6 +133,7 @@ export function UsagePanel(props: UsagePanelProps) {
     injectionLogs,
     onRefreshCurrent,
     onRefreshThis,
+    onClose,
   } = props
 
   const trend24h = useMemo(() => {
@@ -197,23 +195,26 @@ export function UsagePanel(props: UsagePanelProps) {
   }, [reflectorRuns, injectionLogs])
 
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <Dialog.Content maxWidth="980px" className="overflow-hidden flex flex-col" style={{ width: '980px', height: '760px', maxWidth: '980px', maxHeight: '760px' }}>
-        <Dialog.Title>Usage Panel</Dialog.Title>
-        <Dialog.Description size="2" mb="3">
-          Token and memory observability for session <code>{usageSession || sessionKey}</code>
-        </Dialog.Description>
-        <div className="mb-3">
-          <Flex gap="2">
-            <Button size="2" variant="soft" onClick={onRefreshCurrent} disabled={usageLoading}>
-              Refresh Current Session
-            </Button>
-            <Button size="2" variant="soft" onClick={onRefreshThis} disabled={usageLoading}>
-              Refresh This Panel
-            </Button>
-          </Flex>
+    <div className="flex h-full min-h-0 flex-col">
+      <header className="flex items-center justify-between border-b border-[var(--rc-border)] px-4 py-3">
+        <div>
+          <Text size="5" weight="bold">Usage Panel</Text>
+          <Text size="2" color="gray" className="ml-3">
+            Session: <code>{usageSession || sessionKey}</code>
+          </Text>
         </div>
-        <Card className="min-h-0 flex-1 overflow-auto p-3">
+        <Flex gap="2">
+          <Button size="1" variant="soft" onClick={onRefreshCurrent} disabled={usageLoading}>
+            Refresh Current
+          </Button>
+          <Button size="1" variant="soft" onClick={onRefreshThis} disabled={usageLoading}>
+            Refresh Panel
+          </Button>
+          <Button size="1" variant="ghost" onClick={onClose}>Back to Chat</Button>
+        </Flex>
+      </header>
+      <ScrollArea className="min-h-0 flex-1">
+        <div className="p-4">
           {usageLoading ? (
             <Text size="2">Loading usage report...</Text>
           ) : usageError ? (
@@ -280,8 +281,8 @@ export function UsagePanel(props: UsagePanelProps) {
               </Card>
             </div>
           )}
-        </Card>
-      </Dialog.Content>
-    </Dialog.Root>
+        </div>
+      </ScrollArea>
+    </div>
   )
 }

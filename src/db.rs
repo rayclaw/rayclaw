@@ -156,6 +156,26 @@ pub struct ScheduledTask {
     pub created_at: String,
 }
 
+#[derive(Debug, Clone)]
+pub struct TasksSummary {
+    pub total: usize,
+    pub active: usize,
+    pub paused: usize,
+    pub completed: usize,
+    pub cancelled: usize,
+    pub runs_24h: usize,
+    pub failures_24h: usize,
+}
+
+#[derive(Debug, Clone)]
+pub struct DbStats {
+    pub chats_count: usize,
+    pub messages_count: usize,
+    pub memories_count: usize,
+    pub tasks_count: usize,
+    pub db_size_bytes: u64,
+}
+
 fn table_has_column(conn: &Connection, table: &str, column: &str) -> Result<bool, RayClawError> {
     let mut stmt = conn.prepare(&format!("PRAGMA table_info({table})"))?;
     let rows = stmt.query_map([], |row| row.get::<_, String>(1))?;
@@ -1103,6 +1123,234 @@ impl Database {
             params![task_id],
         )?;
         Ok(rows > 0)
+    }
+
+    // --- Dashboard queries ---
+
+    pub fn get_all_tasks(
+        &self,
+        status: Option<&str>,
+        schedule_type: Option<&str>,
+        limit: usize,
+        offset: usize,
+    ) -> Result<(Vec<ScheduledTask>, usize), RayClawError> {
+        let conn = self.lock_conn();
+
+        let mut sql = String::from(
+            "SELECT id, chat_id, prompt, schedule_type, schedule_value, next_run, last_run, status, created_at
+             FROM scheduled_tasks WHERE 1=1",
+        );
+        let mut count_sql = String::from("SELECT COUNT(*) FROM scheduled_tasks WHERE 1=1");
+
+        let mut params_vec: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
+        let mut param_idx = 1;
+
+        if let Some(s) = status {
+            let clause = format!(" AND status = ?{param_idx}");
+            sql.push_str(&clause);
+            count_sql.push_str(&clause);
+            params_vec.push(Box::new(s.to_string()));
+            param_idx += 1;
+        }
+        if let Some(t) = schedule_type {
+            let clause = format!(" AND schedule_type = ?{param_idx}");
+            sql.push_str(&clause);
+            count_sql.push_str(&clause);
+            params_vec.push(Box::new(t.to_string()));
+            param_idx += 1;
+        }
+
+        sql.push_str(&format!(
+            " ORDER BY CASE WHEN status='active' THEN 0 WHEN status='paused' THEN 1 ELSE 2 END, next_run ASC LIMIT ?{param_idx} OFFSET ?{}",
+            param_idx + 1
+        ));
+
+        let count: usize = {
+            let param_refs: Vec<&dyn rusqlite::types::ToSql> =
+                params_vec.iter().map(|p| p.as_ref()).collect();
+            conn.query_row(&count_sql, rusqlite::params_from_iter(param_refs), |r| {
+                r.get(0)
+            })?
+        };
+
+        params_vec.push(Box::new(limit as i64));
+        params_vec.push(Box::new(offset as i64));
+
+        let param_refs: Vec<&dyn rusqlite::types::ToSql> =
+            params_vec.iter().map(|p| p.as_ref()).collect();
+        let mut stmt = conn.prepare(&sql)?;
+        let tasks = stmt
+            .query_map(rusqlite::params_from_iter(param_refs), |row| {
+                Ok(ScheduledTask {
+                    id: row.get(0)?,
+                    chat_id: row.get(1)?,
+                    prompt: row.get(2)?,
+                    schedule_type: row.get(3)?,
+                    schedule_value: row.get(4)?,
+                    next_run: row.get(5)?,
+                    last_run: row.get(6)?,
+                    status: row.get(7)?,
+                    created_at: row.get(8)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok((tasks, count))
+    }
+
+    pub fn get_tasks_summary(&self) -> Result<TasksSummary, RayClawError> {
+        let conn = self.lock_conn();
+
+        let mut summary = TasksSummary {
+            total: 0,
+            active: 0,
+            paused: 0,
+            completed: 0,
+            cancelled: 0,
+            runs_24h: 0,
+            failures_24h: 0,
+        };
+
+        let mut stmt =
+            conn.prepare("SELECT status, COUNT(*) FROM scheduled_tasks GROUP BY status")?;
+        let rows = stmt.query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, usize>(1)?))
+        })?;
+        for row in rows {
+            let (status, count) = row?;
+            summary.total += count;
+            match status.as_str() {
+                "active" => summary.active = count,
+                "paused" => summary.paused = count,
+                "completed" => summary.completed = count,
+                "cancelled" => summary.cancelled = count,
+                _ => {}
+            }
+        }
+
+        summary.runs_24h = conn.query_row(
+            "SELECT COUNT(*) FROM task_run_logs WHERE started_at > datetime('now', '-24 hours')",
+            [],
+            |r| r.get(0),
+        )?;
+        summary.failures_24h = conn.query_row(
+            "SELECT COUNT(*) FROM task_run_logs WHERE success = 0 AND started_at > datetime('now', '-24 hours')",
+            [],
+            |r| r.get(0),
+        )?;
+
+        Ok(summary)
+    }
+
+    pub fn browse_memories(
+        &self,
+        chat_id: Option<i64>,
+        category: Option<&str>,
+        include_archived: bool,
+        search: Option<&str>,
+        limit: usize,
+        offset: usize,
+    ) -> Result<(Vec<Memory>, usize), RayClawError> {
+        let conn = self.lock_conn();
+
+        let mut where_clauses = Vec::new();
+        let mut params_vec: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
+        let mut idx = 1;
+
+        // chat_id filter: None = all, Some(0) = global only, Some(n) = specific chat
+        if let Some(cid) = chat_id {
+            if cid == 0 {
+                where_clauses.push("chat_id IS NULL".to_string());
+            } else {
+                where_clauses.push(format!("chat_id = ?{idx}"));
+                params_vec.push(Box::new(cid));
+                idx += 1;
+            }
+        }
+
+        if let Some(cat) = category {
+            where_clauses.push(format!("category = ?{idx}"));
+            params_vec.push(Box::new(cat.to_string()));
+            idx += 1;
+        }
+
+        if !include_archived {
+            where_clauses.push("is_archived = 0".to_string());
+        }
+
+        if let Some(q) = search {
+            if !q.is_empty() {
+                where_clauses.push(format!("LOWER(content) LIKE ?{idx}"));
+                params_vec.push(Box::new(format!("%{}%", q.to_lowercase())));
+                idx += 1;
+            }
+        }
+
+        let where_str = if where_clauses.is_empty() {
+            String::new()
+        } else {
+            format!(" WHERE {}", where_clauses.join(" AND "))
+        };
+
+        let count: usize = {
+            let count_sql = format!("SELECT COUNT(*) FROM memories{where_str}");
+            let refs: Vec<&dyn rusqlite::types::ToSql> =
+                params_vec.iter().map(|p| p.as_ref()).collect();
+            conn.query_row(&count_sql, rusqlite::params_from_iter(refs), |r| r.get(0))?
+        };
+
+        let sql = format!(
+            "SELECT id, chat_id, content, category, created_at, updated_at, embedding_model,
+                    confidence, source, last_seen_at, is_archived, archived_at
+             FROM memories{where_str}
+             ORDER BY updated_at DESC
+             LIMIT ?{idx} OFFSET ?{}",
+            idx + 1
+        );
+        params_vec.push(Box::new(limit as i64));
+        params_vec.push(Box::new(offset as i64));
+
+        let refs: Vec<&dyn rusqlite::types::ToSql> =
+            params_vec.iter().map(|p| p.as_ref()).collect();
+        let mut stmt = conn.prepare(&sql)?;
+        let memories = stmt
+            .query_map(rusqlite::params_from_iter(refs), |row| {
+                Ok(Memory {
+                    id: row.get(0)?,
+                    chat_id: row.get(1)?,
+                    content: row.get(2)?,
+                    category: row.get(3)?,
+                    created_at: row.get(4)?,
+                    updated_at: row.get(5)?,
+                    embedding_model: row.get(6)?,
+                    confidence: row.get(7)?,
+                    source: row.get(8)?,
+                    last_seen_at: row.get(9)?,
+                    is_archived: row.get::<_, i64>(10)? != 0,
+                    archived_at: row.get(11)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok((memories, count))
+    }
+
+    pub fn get_db_stats(&self) -> Result<DbStats, RayClawError> {
+        let conn = self.lock_conn();
+        let chats_count: usize = conn.query_row("SELECT COUNT(*) FROM chats", [], |r| r.get(0))?;
+        let messages_count: usize =
+            conn.query_row("SELECT COUNT(*) FROM messages", [], |r| r.get(0))?;
+        let memories_count: usize =
+            conn.query_row("SELECT COUNT(*) FROM memories", [], |r| r.get(0))?;
+        let tasks_count: usize =
+            conn.query_row("SELECT COUNT(*) FROM scheduled_tasks", [], |r| r.get(0))?;
+        let page_count: u64 = conn.query_row("PRAGMA page_count", [], |r| r.get(0))?;
+        let page_size: u64 = conn.query_row("PRAGMA page_size", [], |r| r.get(0))?;
+        Ok(DbStats {
+            chats_count,
+            messages_count,
+            memories_count,
+            tasks_count,
+            db_size_bytes: page_count * page_size,
+        })
     }
 
     // --- Sessions ---

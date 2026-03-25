@@ -1548,6 +1548,17 @@ async fn icon_file() -> impl IntoResponse {
     }
 }
 
+async fn logo_file() -> impl IntoResponse {
+    match WEB_ASSETS.get_file("logo.png") {
+        Some(file) => (
+            [("content-type", "image/png")],
+            file.contents().to_vec(),
+        )
+            .into_response(),
+        None => (StatusCode::NOT_FOUND, "Not Found").into_response(),
+    }
+}
+
 async fn favicon_file() -> impl IntoResponse {
     if let Some(file) = WEB_ASSETS.get_file("favicon.ico") {
         return ([("content-type", "image/x-icon")], file.contents().to_vec()).into_response();
@@ -1855,12 +1866,183 @@ async fn api_acp_job_status(
     }
 }
 
+// --- Dashboard API ---
+
+#[derive(Debug, Deserialize)]
+struct DashboardTasksQuery {
+    status: Option<String>,
+    #[serde(rename = "type")]
+    schedule_type: Option<String>,
+    limit: Option<usize>,
+    offset: Option<usize>,
+}
+
+#[derive(Debug, Deserialize)]
+struct DashboardTaskLogsQuery {
+    limit: Option<usize>,
+}
+
+#[derive(Debug, Deserialize)]
+struct DashboardMemoriesQuery {
+    chat_id: Option<i64>,
+    category: Option<String>,
+    archived: Option<bool>,
+    search: Option<String>,
+    limit: Option<usize>,
+    offset: Option<usize>,
+}
+
+async fn api_dashboard_tasks(
+    headers: HeaderMap,
+    State(state): State<WebState>,
+    Query(query): Query<DashboardTasksQuery>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    require_auth(&headers, state.auth_token.as_deref())?;
+    let status = query.status.clone();
+    let schedule_type = query.schedule_type.clone();
+    let limit = query.limit.unwrap_or(50).min(200);
+    let offset = query.offset.unwrap_or(0);
+    let (tasks, total) = call_blocking(state.app_state.db.clone(), move |db| {
+        db.get_all_tasks(status.as_deref(), schedule_type.as_deref(), limit, offset)
+    })
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    Ok(Json(json!({
+        "ok": true,
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "tasks": tasks.iter().map(|t| json!({
+            "id": t.id,
+            "chat_id": t.chat_id,
+            "prompt": t.prompt,
+            "schedule_type": t.schedule_type,
+            "schedule_value": t.schedule_value,
+            "next_run": t.next_run,
+            "last_run": t.last_run,
+            "status": t.status,
+            "created_at": t.created_at,
+        })).collect::<Vec<_>>(),
+    })))
+}
+
+async fn api_dashboard_tasks_summary(
+    headers: HeaderMap,
+    State(state): State<WebState>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    require_auth(&headers, state.auth_token.as_deref())?;
+    let summary = call_blocking(state.app_state.db.clone(), |db| db.get_tasks_summary())
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    Ok(Json(json!({
+        "ok": true,
+        "total": summary.total,
+        "active": summary.active,
+        "paused": summary.paused,
+        "completed": summary.completed,
+        "cancelled": summary.cancelled,
+        "runs_24h": summary.runs_24h,
+        "failures_24h": summary.failures_24h,
+    })))
+}
+
+async fn api_dashboard_task_logs(
+    headers: HeaderMap,
+    State(state): State<WebState>,
+    Path(task_id): Path<i64>,
+    Query(query): Query<DashboardTaskLogsQuery>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    require_auth(&headers, state.auth_token.as_deref())?;
+    let limit = query.limit.unwrap_or(20).min(100);
+    let logs = call_blocking(state.app_state.db.clone(), move |db| {
+        db.get_task_run_logs(task_id, limit)
+    })
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    Ok(Json(json!({
+        "ok": true,
+        "task_id": task_id,
+        "logs": logs.iter().map(|l| json!({
+            "id": l.id,
+            "started_at": l.started_at,
+            "finished_at": l.finished_at,
+            "duration_ms": l.duration_ms,
+            "success": l.success,
+            "result_summary": l.result_summary,
+        })).collect::<Vec<_>>(),
+    })))
+}
+
+async fn api_dashboard_memories(
+    headers: HeaderMap,
+    State(state): State<WebState>,
+    Query(query): Query<DashboardMemoriesQuery>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    require_auth(&headers, state.auth_token.as_deref())?;
+    let chat_id = query.chat_id;
+    let category = query.category.clone();
+    let include_archived = query.archived.unwrap_or(false);
+    let search = query.search.clone();
+    let limit = query.limit.unwrap_or(50).min(200);
+    let offset = query.offset.unwrap_or(0);
+    let (memories, total) = call_blocking(state.app_state.db.clone(), move |db| {
+        db.browse_memories(
+            chat_id,
+            category.as_deref(),
+            include_archived,
+            search.as_deref(),
+            limit,
+            offset,
+        )
+    })
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    Ok(Json(json!({
+        "ok": true,
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "memories": memories.iter().map(|m| json!({
+            "id": m.id,
+            "chat_id": m.chat_id,
+            "content": m.content,
+            "category": m.category,
+            "confidence": m.confidence,
+            "source": m.source,
+            "created_at": m.created_at,
+            "updated_at": m.updated_at,
+            "last_seen_at": m.last_seen_at,
+            "is_archived": m.is_archived,
+            "archived_at": m.archived_at,
+        })).collect::<Vec<_>>(),
+    })))
+}
+
+async fn api_dashboard_db_stats(
+    headers: HeaderMap,
+    State(state): State<WebState>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    require_auth(&headers, state.auth_token.as_deref())?;
+    let stats = call_blocking(state.app_state.db.clone(), |db| db.get_db_stats())
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    Ok(Json(json!({
+        "ok": true,
+        "chats": stats.chats_count,
+        "messages": stats.messages_count,
+        "memories": stats.memories_count,
+        "tasks": stats.tasks_count,
+        "db_size_bytes": stats.db_size_bytes,
+    })))
+}
+
 fn build_router(web_state: WebState) -> Router {
     Router::new()
         .route("/", get(index))
         .route("/assets/*file", get(asset_file))
         .route("/icon.svg", get(icon_file))
         .route("/favicon.ico", get(favicon_file))
+        .route("/logo.png", get(logo_file))
         .route("/api/health", get(api_health))
         .route("/api/config", get(api_get_config).put(api_update_config))
         .route("/api/sessions", get(api_sessions))
@@ -1873,6 +2055,18 @@ fn build_router(web_state: WebState) -> Router {
         .route("/api/run_status", get(api_run_status))
         .route("/api/reset", post(api_reset))
         .route("/api/delete_session", post(api_delete_session))
+        // Dashboard API (read-only)
+        .route("/api/dashboard/tasks", get(api_dashboard_tasks))
+        .route(
+            "/api/dashboard/tasks/summary",
+            get(api_dashboard_tasks_summary),
+        )
+        .route(
+            "/api/dashboard/tasks/:id/logs",
+            get(api_dashboard_task_logs),
+        )
+        .route("/api/dashboard/memories", get(api_dashboard_memories))
+        .route("/api/dashboard/db/stats", get(api_dashboard_db_stats))
         // ACP HTTP API
         .route("/api/acp/health", get(api_acp_health))
         .route("/api/acp/agents", get(api_acp_agents))

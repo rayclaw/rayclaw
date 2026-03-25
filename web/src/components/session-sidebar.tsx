@@ -13,6 +13,7 @@ type SessionSidebarProps = {
   onDeleteSession: (key: string) => void
   onOpenConfig: () => Promise<void>
   onOpenUsage: () => Promise<void>
+  onOpenDashboard: () => void
   onNewSession: () => void
 }
 
@@ -27,6 +28,7 @@ export function SessionSidebar({
   onDeleteSession,
   onOpenConfig,
   onOpenUsage,
+  onOpenDashboard,
   onNewSession,
 }: SessionSidebarProps) {
   const isDark = appearance === 'dark'
@@ -133,7 +135,10 @@ export function SessionSidebar({
       </div>
 
       <div className="mt-4 border-t border-[var(--rc-border-subtle)] pt-3">
-        <Button size="2" variant="soft" onClick={() => void onOpenUsage()} style={{ width: '100%' }}>
+        <Button size="2" variant="soft" onClick={onOpenDashboard} style={{ width: '100%' }}>
+          Dashboard
+        </Button>
+        <Button size="2" variant="soft" onClick={() => void onOpenUsage()} style={{ width: '100%', marginTop: '8px' }}>
           Usage Panel
         </Button>
         <Button size="2" variant="soft" onClick={() => void onOpenConfig()} style={{ width: '100%', marginTop: '8px' }}>

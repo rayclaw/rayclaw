@@ -9,7 +9,7 @@ keywords = ["ai", "agent", "llm", "chatbot", "runtime"]
 categories = ["api-bindings", "asynchronous"]
 
 [features]
-default = ["telegram", "discord", "slack", "feishu", "weixin"]
+default = ["telegram", "discord", "slack", "feishu", "weixin", "web"]
 all = ["telegram", "discord", "slack", "feishu", "weixin", "web"]
 telegram = ["dep:teloxide"]
 discord = ["dep:serenity"]

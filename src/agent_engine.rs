@@ -113,6 +113,17 @@ pub async fn process_with_agent_with_events(
         .await
 }
 
+/// Remove the TODO.json for a chat so stale tasks don't carry over.
+fn clear_todo(data_dir: &str, chat_id: i64) {
+    let todo_path = std::path::PathBuf::from(data_dir)
+        .join("groups")
+        .join(chat_id.to_string())
+        .join("TODO.json");
+    if todo_path.exists() {
+        let _ = std::fs::remove_file(&todo_path);
+    }
+}
+
 fn sanitize_xml(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     for c in s.chars() {
@@ -923,14 +934,7 @@ pub(crate) async fn process_with_agent_impl(
                     "{final_text}\n\nExecution note: some tool actions failed in this request ({tools}). Ask me to retry if needed."
                 )
             };
-            // Clear the TODO list so the next request starts fresh
-            let todo_path = std::path::PathBuf::from(&state.config.data_dir)
-                .join("groups")
-                .join(chat_id.to_string())
-                .join("TODO.json");
-            if todo_path.exists() {
-                let _ = std::fs::remove_file(&todo_path);
-            }
+            clear_todo(&state.config.data_dir, chat_id);
 
             if let Some(tx) = event_tx {
                 let _ = tx.send(AgentEvent::FinalResponse {
@@ -1062,9 +1066,9 @@ pub(crate) async fn process_with_agent_impl(
         });
     }
 
-    // Max iterations reached — cap session with an assistant message so the
-    // conversation doesn't end on a tool_result (which would cause
-    // "tool call result does not follow tool call" on the next resume).
+    // Max iterations reached — clear TODO so stale in_progress tasks don't
+    // loop on the next request, then cap session with an assistant message.
+    clear_todo(&state.config.data_dir, chat_id);
     let max_iter_msg = "I reached the maximum number of tool iterations. Here's what I was working on — please try breaking your request into smaller steps.".to_string();
     messages.push(Message {
         role: "assistant".into(),
@@ -1402,6 +1406,7 @@ ACP coding agents: users interact with external agents via `#new`, `#end`, `#age
 - Skip the todo list only when your response needs zero tool calls.
 - Keep exactly one task `in_progress` at a time; mark it completed before advancing.
 - Synchronize the todo list with real outcomes after each step.
+- If `todo_read` returns tasks from a previous request that are no longer relevant, clear them with `todo_write` and create a fresh plan for the current request. Never blindly resume stale in_progress tasks.
 
 ## Memory
 - Use `chat` scope for information specific to this conversation.
